@@ -148,6 +148,522 @@ LampStageNode.prototype.createMessage = function(event, currentCase) {
 
 }
 
+var TreeStageNode = function(stageName, prev, next) {   
+
+    StageNode.call(this, stageName, prev, next);      
+            
+}
+
+TreeStageNode.prototype.createMessage = function(event, currentCase) {
+
+    var message = null;
+
+    switch(this.stageName) {
+    
+        case "start":
+        
+            var message = {
+              "type": "template",
+              "altText": "Pick the date and time",
+              "template": {
+                  "type": "confirm",
+                  "text": "什麼時候發現的？",
+                  "actions": [
+                      {  
+                         "type":"datetimepicker",
+                         "label":"選擇日期時間",
+                         "data":"storeId=12345",
+                         "mode":"datetime",
+                         "initial":"2017-12-25t00:00",
+                         "max":"2018-01-24t23:59",
+                         "min":"2017-12-25t00:00"
+                      },
+                      {
+                        "type": "message",
+                        "label": "取消",
+                        "text": "取消"
+                      }
+                  ]
+              }
+            }
+            
+            if(!this.next) {                
+                this.next = new TreeStageNode("GPS", currentCase.currentStage, null);
+            }
+                
+            currentCase.currentStage = this.next;
+            
+            break;
+            
+        case "GPS":
+        
+            if(event.type == "postback") {
+                message = { type: 'text', text: event.postback.params.datetime };
+                
+                var message = {
+                  "type": "template",
+                  "altText": "Pick the date and time",
+                  "template": {
+                      "type": "confirm",
+                      "text": "時間："　+ event.postback.params.datetime + "\n" + "能幫我選擇地址嗎？",
+                      "actions": [
+                          {  
+                             "type":"uri",
+                             "label":"選擇地址",
+                             "uri":"line://nv/location",
+                             "altUri": {
+                                "desktop" : "http://example.com/pc/page/222"
+                             }
+                          },
+                          {
+                            "type": "message",
+                            "label": "取消",
+                            "text": "取消"
+                          }
+                      ]
+                  }
+                }
+                
+                if(!this.next) {                
+                    this.next = new TreeStageNode("photo", currentCase.currentStage, null);
+                }
+                currentCase.currentStage = this.next;
+                
+            } else {
+                message = { type: 'text', text: "使用者取消" };
+                var userId = event.source.userId;
+                
+                libotUsers[userId].currentCaseId = null                
+                currentCase.currentStage = null
+                
+            }                    
+            
+            break;                                        
+            
+        case "photo":
+            
+            if(event.type == "message"　&& event.message.type == "location" ) {
+            
+                message = { type: 'text', text: "最後一個步驟，請傳照片給我！"};
+                
+                if(!this.next) {                
+                    this.next = new TreeStageNode("end", currentCase.currentStage, null);
+                }
+                
+                currentCase.currentStage = this.next;
+            } else {
+                message = { type: 'text', text: "使用者取消" };
+                var userId = event.source.userId;
+                
+                libotUsers[userId].currentCaseId = null                
+                currentCase.currentStage = null
+                
+            }      
+            
+            break;                    
+            
+        case "end":
+        
+            message = { type: 'text', text: "完成"};
+            var userId = event.source.userId;
+            libotUsers[userId].currentCaseId = null                
+            currentCase.currentStage = null
+
+            break;
+    
+    }
+    
+    return message;
+
+}
+
+var HoleStageNode = function(stageName, prev, next) {   
+
+    StageNode.call(this, stageName, prev, next);      
+            
+}
+
+HoleStageNode.prototype.createMessage = function(event, currentCase) {
+
+    var message = null;
+
+    switch(this.stageName) {
+    
+        case "start":
+        
+            var message = {
+              "type": "template",
+              "altText": "Pick the date and time",
+              "template": {
+                  "type": "confirm",
+                  "text": "什麼時候發現的？",
+                  "actions": [
+                      {  
+                         "type":"datetimepicker",
+                         "label":"選擇日期時間",
+                         "data":"storeId=12345",
+                         "mode":"datetime",
+                         "initial":"2017-12-25t00:00",
+                         "max":"2018-01-24t23:59",
+                         "min":"2017-12-25t00:00"
+                      },
+                      {
+                        "type": "message",
+                        "label": "取消",
+                        "text": "取消"
+                      }
+                  ]
+              }
+            }
+            
+            if(!this.next) {                
+                this.next = new HoleStageNode("GPS", currentCase.currentStage, null);
+            }
+                
+            currentCase.currentStage = this.next;
+            
+            break;
+            
+        case "GPS":
+        
+            if(event.type == "postback") {
+                message = { type: 'text', text: event.postback.params.datetime };
+                
+                var message = {
+                  "type": "template",
+                  "altText": "Pick the date and time",
+                  "template": {
+                      "type": "confirm",
+                      "text": "時間："　+ event.postback.params.datetime + "\n" + "能幫我選擇地址嗎？",
+                      "actions": [
+                          {  
+                             "type":"uri",
+                             "label":"選擇地址",
+                             "uri":"line://nv/location",
+                             "altUri": {
+                                "desktop" : "http://example.com/pc/page/222"
+                             }
+                          },
+                          {
+                            "type": "message",
+                            "label": "取消",
+                            "text": "取消"
+                          }
+                      ]
+                  }
+                }
+                
+                if(!this.next) {                
+                    this.next = new HoleStageNode("photo", currentCase.currentStage, null);
+                }
+                currentCase.currentStage = this.next;
+                
+            } else {
+                message = { type: 'text', text: "使用者取消" };
+                var userId = event.source.userId;
+                
+                libotUsers[userId].currentCaseId = null                
+                currentCase.currentStage = null
+                
+            }                    
+            
+            break;                                        
+            
+        case "photo":
+            
+            if(event.type == "message"　&& event.message.type == "location" ) {
+            
+                message = { type: 'text', text: "最後一個步驟，請傳照片給我！"};
+                
+                if(!this.next) {                
+                    this.next = new HoleStageNode("end", currentCase.currentStage, null);
+                }
+                
+                currentCase.currentStage = this.next;
+            } else {
+                message = { type: 'text', text: "使用者取消" };
+                var userId = event.source.userId;
+                
+                libotUsers[userId].currentCaseId = null                
+                currentCase.currentStage = null
+                
+            }      
+            
+            break;                    
+            
+        case "end":
+        
+            message = { type: 'text', text: "完成"};
+            var userId = event.source.userId;
+            libotUsers[userId].currentCaseId = null                
+            currentCase.currentStage = null
+
+            break;
+    
+    }
+    
+    return message;
+
+}
+
+var SignStageNode = function(stageName, prev, next) {   
+
+    StageNode.call(this, stageName, prev, next);      
+            
+}
+
+SignStageNode.prototype.createMessage = function(event, currentCase) {
+
+    var message = null;
+
+    switch(this.stageName) {
+    
+        case "start":
+        
+            var message = {
+              "type": "template",
+              "altText": "Pick the date and time",
+              "template": {
+                  "type": "confirm",
+                  "text": "什麼時候發現的？",
+                  "actions": [
+                      {  
+                         "type":"datetimepicker",
+                         "label":"選擇日期時間",
+                         "data":"storeId=12345",
+                         "mode":"datetime",
+                         "initial":"2017-12-25t00:00",
+                         "max":"2018-01-24t23:59",
+                         "min":"2017-12-25t00:00"
+                      },
+                      {
+                        "type": "message",
+                        "label": "取消",
+                        "text": "取消"
+                      }
+                  ]
+              }
+            }
+            
+            if(!this.next) {                
+                this.next = new SignStageNode("GPS", currentCase.currentStage, null);
+            }
+                
+            currentCase.currentStage = this.next;
+            
+            break;
+            
+        case "GPS":
+        
+            if(event.type == "postback") {
+                message = { type: 'text', text: event.postback.params.datetime };
+                
+                var message = {
+                  "type": "template",
+                  "altText": "Pick the date and time",
+                  "template": {
+                      "type": "confirm",
+                      "text": "時間："　+ event.postback.params.datetime + "\n" + "能幫我選擇地址嗎？",
+                      "actions": [
+                          {  
+                             "type":"uri",
+                             "label":"選擇地址",
+                             "uri":"line://nv/location",
+                             "altUri": {
+                                "desktop" : "http://example.com/pc/page/222"
+                             }
+                          },
+                          {
+                            "type": "message",
+                            "label": "取消",
+                            "text": "取消"
+                          }
+                      ]
+                  }
+                }
+                
+                if(!this.next) {                
+                    this.next = new SignStageNode("photo", currentCase.currentStage, null);
+                }
+                currentCase.currentStage = this.next;
+                
+            } else {
+                message = { type: 'text', text: "使用者取消" };
+                var userId = event.source.userId;
+                
+                libotUsers[userId].currentCaseId = null                
+                currentCase.currentStage = null
+                
+            }                    
+            
+            break;                                        
+            
+        case "photo":
+            
+            if(event.type == "message"　&& event.message.type == "location" ) {
+            
+                message = { type: 'text', text: "最後一個步驟，請傳照片給我！"};
+                
+                if(!this.next) {                
+                    this.next = new SignStageNode("end", currentCase.currentStage, null);
+                }
+                
+                currentCase.currentStage = this.next;
+            } else {
+                message = { type: 'text', text: "使用者取消" };
+                var userId = event.source.userId;
+                
+                libotUsers[userId].currentCaseId = null                
+                currentCase.currentStage = null
+                
+            }      
+            
+            break;                    
+            
+        case "end":
+        
+            message = { type: 'text', text: "完成"};
+            var userId = event.source.userId;
+            libotUsers[userId].currentCaseId = null                
+            currentCase.currentStage = null
+
+            break;
+    
+    }
+    
+    return message;
+
+}
+
+var OtherStageNode = function(stageName, prev, next) {   
+
+    StageNode.call(this, stageName, prev, next);      
+            
+}
+
+OtherStageNode.prototype.createMessage = function(event, currentCase) {
+
+    var message = null;
+
+    switch(this.stageName) {
+    
+        case "start":
+        
+            var message = {
+              "type": "template",
+              "altText": "Pick the date and time",
+              "template": {
+                  "type": "confirm",
+                  "text": "什麼時候發現的？",
+                  "actions": [
+                      {  
+                         "type":"datetimepicker",
+                         "label":"選擇日期時間",
+                         "data":"storeId=12345",
+                         "mode":"datetime",
+                         "initial":"2017-12-25t00:00",
+                         "max":"2018-01-24t23:59",
+                         "min":"2017-12-25t00:00"
+                      },
+                      {
+                        "type": "message",
+                        "label": "取消",
+                        "text": "取消"
+                      }
+                  ]
+              }
+            }
+            
+            if(!this.next) {                
+                this.next = new SignStageNode("GPS", currentCase.currentStage, null);
+            }
+                
+            currentCase.currentStage = this.next;
+            
+            break;
+            
+        case "GPS":
+        
+            if(event.type == "postback") {
+                message = { type: 'text', text: event.postback.params.datetime };
+                
+                var message = {
+                  "type": "template",
+                  "altText": "Pick the date and time",
+                  "template": {
+                      "type": "confirm",
+                      "text": "時間："　+ event.postback.params.datetime + "\n" + "能幫我選擇地址嗎？",
+                      "actions": [
+                          {  
+                             "type":"uri",
+                             "label":"選擇地址",
+                             "uri":"line://nv/location",
+                             "altUri": {
+                                "desktop" : "http://example.com/pc/page/222"
+                             }
+                          },
+                          {
+                            "type": "message",
+                            "label": "取消",
+                            "text": "取消"
+                          }
+                      ]
+                  }
+                }
+                
+                if(!this.next) {                
+                    this.next = new SignStageNode("photo", currentCase.currentStage, null);
+                }
+                currentCase.currentStage = this.next;
+                
+            } else {
+                message = { type: 'text', text: "使用者取消" };
+                var userId = event.source.userId;
+                
+                libotUsers[userId].currentCaseId = null                
+                currentCase.currentStage = null
+                
+            }                    
+            
+            break;                                        
+            
+        case "photo":
+            
+            if(event.type == "message"　&& event.message.type == "location" ) {
+            
+                message = { type: 'text', text: "最後一個步驟，請傳照片給我！"};
+                
+                if(!this.next) {                
+                    this.next = new SignStageNode("end", currentCase.currentStage, null);
+                }
+                
+                currentCase.currentStage = this.next;
+            } else {
+                message = { type: 'text', text: "使用者取消" };
+                var userId = event.source.userId;
+                
+                libotUsers[userId].currentCaseId = null                
+                currentCase.currentStage = null
+                
+            }      
+            
+            break;                    
+            
+        case "end":
+        
+            message = { type: 'text', text: "完成"};
+            var userId = event.source.userId;
+            libotUsers[userId].currentCaseId = null                
+            currentCase.currentStage = null
+
+            break;
+    
+    }
+    
+    return message;
+
+}
+
 var TYPE_TO_STRING = {
     0: "路燈故障",
     1: "公園樹木",
@@ -178,6 +694,22 @@ var Case = function(userId, timestamp, type) {
             this.stageHead = new LampStageNode("start", null, null);
             this.currentStage = this.stageHead;
             break;
+        case "公園樹木":
+            this.stageHead = new TreeStageNode("start", null, null);
+            this.currentStage = this.stageHead;
+            break;
+        case "道路坑洞":
+            this.stageHead = new HoleStageNode("start", null, null);
+            this.currentStage = this.stageHead;
+            break;
+        case "號誌反光鏡":
+            this.stageHead = new SignStageNode("start", null, null);
+            this.currentStage = this.stageHead;
+            break;
+        case "其他問題":
+            this.stageHead = new OtherStageNode("start", null, null);
+            this.currentStage = this.stageHead;
+            break;
     }
 }
 
@@ -200,19 +732,16 @@ User.prototype.process = function(event) {
        
         switch(event.message.text) {
             case "路燈故障":                       
+            case "公園樹木":            
+            case "道路坑洞":            
+            case "號誌反光鏡":
+            case "其他問題":
                 this.caseIds[newCase.caseId] = true;
                 this.currentCaseId = newCase.caseId;            
                 libotCases[newCase.caseId] = newCase;
-                message = newCase.currentStage.createMessage(event, libotCases[newCase.caseId]);
-                break;
-            case "公園樹木":
-                break;
-            case "道路坑洞":
-                break;
-            case "號誌反光鏡":
-                break;
-            case "其他問題":
-                break;
+                console.log(newCase.currentStage);
+                message = newCase.currentStage.createMessage(event, libotCases[newCase.caseId]);  
+                break;            
             case "看案件進度":
                 break;
         }
