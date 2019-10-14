@@ -1,5 +1,65 @@
 'use strict';
 
+const https = require('https');
+
+const fs = require('fs');
+
+const INVITE_LINK = "https://line.me/R/ti/p/%40762jfknc";
+
+const line = require('@line/bot-sdk');
+const express = require('express');
+
+// create LINE SDK config from env variables
+const config = {
+  channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
+  channelSecret: process.env.CHANNEL_SECRET,
+};
+
+// create LINE SDK client
+const client = new line.Client(config);
+
+// create Express app
+// about Express itself: https://expressjs.com/
+const app = express();
+
+// register a webhook handler with middleware
+// about the middleware, please refer to doc
+app.post('/callback', line.middleware(config), (req, res) => {
+  Promise
+    .all(req.body.events.map(handleEvent))
+    .then((result) => res.json(result))
+    .catch((err) => {
+      console.error(err);
+      res.status(500).end();
+    });
+});
+
+var Stream = require('stream').Transform;
+
+/*function getImageFromLine(messageId) {
+    const options = {
+        hostname: 'api.line.me',
+        path: '/v2/bot/message/' + messageId.toString() + '/content',
+        headers: {
+            Authorization: 'Bearer {token}'
+        }
+    }
+
+    https.get(options, (response) => {
+
+        var data = new Stream();
+        response.on('data', function (chunk) {
+            data.push(chunk);
+        });
+
+        response.on('end', function () {
+            fs.writeFileSync("image.jpg", data.read());
+        });
+
+    });        
+}
+
+getImageFromLine(10734290015929);*/
 
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -15,8 +75,12 @@ var StageNode = function(stageName, prev, next) {
 
     this.stageName = stageName
     this.prev = prev;
-    this.next = next;    
-            
+    this.next = next;
+    this.wait = false;
+    
+    this.waitSwitch = function() {
+        this.wait = !this.wait;
+    }        
 }
 
 var LampStageNode = function(stageName, prev, next) {   
@@ -33,101 +97,169 @@ LampStageNode.prototype.createMessage = function(event, currentCase) {
     
         case "start":
         
-            var message = {
-              "type": "template",
-              "altText": "Pick the date and time",
-              "template": {
-                  "type": "confirm",
-                  "text": "什麼時候發現的？",
-                  "actions": [
-                      {  
-                         "type":"datetimepicker",
-                         "label":"選擇日期時間",
-                         "data":"storeId=12345",
-                         "mode":"datetime",
-                         "initial":"2017-12-25t00:00",
-                         "max":"2018-01-24t23:59",
-                         "min":"2017-12-25t00:00"
-                      },
-                      {
-                        "type": "message",
-                        "label": "取消",
-                        "text": "取消"
-                      }
-                  ]
-              }
+            if(!this.wait) {
+            
+                this.waitSwitch();
+            
+                var action1 = {
+                                 "type":"datetimepicker",
+                                 "label":"選擇日期時間",
+                                 "data":"storeId=12345",
+                                 "mode":"datetime",
+                                 "initial":"2017-12-25t00:00",
+                                 "max":"2018-01-24t23:59",
+                                 "min":"2017-12-25t00:00"
+                              };
+            
+                message = generateFlexMessage("什麼時候發現的？", action1, false);                    
+            
+            } else {
+            
+                this.waitSwitch();
+            
+                if(event.type == "postback") {
+                    currentCase.eventTimestamp = event.postback.params.datetime;
+                    
+                    if(!this.next) {
+                        this.next = new LampStageNode("GPS", currentCase.currentStage, null);
+                    }
+                    
+                    currentCase.currentStage = this.next;                                                                            
+                    
+                    message = currentCase.currentStage.createMessage(event, currentCase);
+                    
+                } else {
+                    if(event.type == "message") {
+                        switch(event.message.text) {
+                            case "取消":
+                                message = { type: 'text', text: "使用者取消" };
+                                var userId = event.source.userId;
+                                
+                                libotUsers[userId].currentCaseId = null                
+                                currentCase.currentStage = null
+                                break;                                                            
+                        }
+                    }
+                }                                                   
+            
             }
             
-            if(!this.next) {                
-                this.next = new LampStageNode("GPS", currentCase.currentStage, null);
-            }
-                
-            currentCase.currentStage = this.next;
             
             break;
             
         case "GPS":
         
-            if(event.type == "postback") {
-                message = { type: 'text', text: event.postback.params.datetime };
+            if(!this.wait) {                                
                 
-                var message = {
-                  "type": "template",
-                  "altText": "Pick the date and time",
-                  "template": {
-                      "type": "confirm",
-                      "text": "時間："　+ event.postback.params.datetime + "\n" + "能幫我選擇地址嗎？",
-                      "actions": [
-                          {  
-                             "type":"uri",
-                             "label":"選擇地址",
-                             "uri":"line://nv/location",
-                             "altUri": {
-                                "desktop" : "http://example.com/pc/page/222"
-                             }
-                          },
-                          {
-                            "type": "message",
-                            "label": "取消",
-                            "text": "取消"
-                          }
-                      ]
-                  }
-                }
+                this.waitSwitch();
+                                                   
+                var action1 = 　{  
+                                 "type":"uri",
+                                 "label":"選擇地址",
+                                 "uri":"line://nv/location",
+                                 "altUri": {
+                                    "desktop" : "http://example.com/pc/page/222"
+                                 }
+                              　};                                
                 
-                if(!this.next) {                
-                    this.next = new LampStageNode("photo", currentCase.currentStage, null);
-                }
-                currentCase.currentStage = this.next;
-                
+                message = generateFlexMessage("您選擇的時間為："　+ currentCase.eventTimestamp + "\n" + "能幫我選擇地址嗎？", action1);                                  
+                                                                              
             } else {
-                message = { type: 'text', text: "使用者取消" };
-                var userId = event.source.userId;
+            
+                this.waitSwitch();
+            
+                if(event.type == "message"　&& event.message.type == "location") {
+                    
+                    currentCase.location = event.message
+                    
+                    if(!this.next) {                
+                        this.next = new LampStageNode("photo", currentCase.currentStage, null);
+                    }
+                    
+                    currentCase.currentStage = this.next;
+                    
+                    message = currentCase.currentStage.createMessage(event, currentCase);
+                    
+                } else {
                 
-                libotUsers[userId].currentCaseId = null                
-                currentCase.currentStage = null
+                    if(event.type == "message") {
+                        switch(event.message.text) {
+                            case "取消":
+                                message = { type: 'text', text: "使用者取消" };
+                                var userId = event.source.userId;
+                                
+                                libotUsers[userId].currentCaseId = null                
+                                currentCase.currentStage = null
+                                break;
+                                
+                            case "前一步":
+                                console.log("前一步");
+                                currentCase.currentStage = this.prev;
+                                console.log(currentCase.currentStage);
+                                message = currentCase.currentStage.createMessage(event, currentCase);
+                                
+                                break;
+                        }
+                    }            
+                    
+                }   
+            
+            }    
                 
-            }                    
+                
+                               
             
             break;                                        
             
         case "photo":
             
-            if(event.type == "message"　&& event.message.type == "location" ) {
-            
-                message = { type: 'text', text: "最後一個步驟，請傳照片給我！"};
+            if(!this.wait) {                                
                 
-                if(!this.next) {                
-                    this.next = new LampStageNode("end", currentCase.currentStage, null);
-                }
+                this.waitSwitch();
                 
-                currentCase.currentStage = this.next;
+                var action1 = null;
+                
+                message = generateFlexMessage("最後一個步驟囉～\n請直接傳照片給我！", action1);
+                                
             } else {
-                message = { type: 'text', text: "使用者取消" };
-                var userId = event.source.userId;
-                
-                libotUsers[userId].currentCaseId = null                
-                currentCase.currentStage = null
+            
+                this.waitSwitch();
+            
+                if(event.type == "message" && event.message.type == "image") {
+            
+                    if(!this.next) {                
+                        this.next = new LampStageNode("end", currentCase.currentStage, null);
+                    }
+                    
+                    currentCase.image = event.message.id
+
+                    currentCase.currentStage = this.next;
+                    
+                    message = currentCase.currentStage.createMessage(event, currentCase);
+                    
+                } else {
+            
+                    if(event.type == "message") {
+                        switch(event.message.text) {
+                            case "取消":
+                                message = { type: 'text', text: "使用者取消" };
+                                var userId = event.source.userId;
+                                
+                                libotUsers[userId].currentCaseId = null                
+                                currentCase.currentStage = null
+                                break;
+                                
+                            case "前一步":
+                                console.log("前一步");
+                                currentCase.currentStage = this.prev;
+                                console.log(currentCase.currentStage);
+                                message = currentCase.currentStage.createMessage(event, currentCase);
+                                
+                                break;
+                        }
+                    }
+                    
+                }
                 
             }      
             
@@ -136,9 +268,12 @@ LampStageNode.prototype.createMessage = function(event, currentCase) {
         case "end":
         
             message = { type: 'text', text: "完成"};
+            
+            console.log(currentCase);                
+            
             var userId = event.source.userId;
             libotUsers[userId].currentCaseId = null                
-            currentCase.currentStage = null
+            currentCase.currentStage = null                            
 
             break;
     
@@ -162,101 +297,169 @@ TreeStageNode.prototype.createMessage = function(event, currentCase) {
     
         case "start":
         
-            var message = {
-              "type": "template",
-              "altText": "Pick the date and time",
-              "template": {
-                  "type": "confirm",
-                  "text": "什麼時候發現的？",
-                  "actions": [
-                      {  
-                         "type":"datetimepicker",
-                         "label":"選擇日期時間",
-                         "data":"storeId=12345",
-                         "mode":"datetime",
-                         "initial":"2017-12-25t00:00",
-                         "max":"2018-01-24t23:59",
-                         "min":"2017-12-25t00:00"
-                      },
-                      {
-                        "type": "message",
-                        "label": "取消",
-                        "text": "取消"
-                      }
-                  ]
-              }
+            if(!this.wait) {
+            
+                this.waitSwitch();
+            
+                var action1 = {
+                                 "type":"datetimepicker",
+                                 "label":"選擇日期時間",
+                                 "data":"storeId=12345",
+                                 "mode":"datetime",
+                                 "initial":"2017-12-25t00:00",
+                                 "max":"2018-01-24t23:59",
+                                 "min":"2017-12-25t00:00"
+                              };
+            
+                message = generateFlexMessage("什麼時候發現的？", action1, false);                    
+            
+            } else {
+            
+                this.waitSwitch();
+            
+                if(event.type == "postback") {
+                    currentCase.eventTimestamp = event.postback.params.datetime;
+                    
+                    if(!this.next) {
+                        this.next = new TreeStageNode("GPS", currentCase.currentStage, null);
+                    }
+                    
+                    currentCase.currentStage = this.next;                                                                            
+                    
+                    message = currentCase.currentStage.createMessage(event, currentCase);
+                    
+                } else {
+                    if(event.type == "message") {
+                        switch(event.message.text) {
+                            case "取消":
+                                message = { type: 'text', text: "使用者取消" };
+                                var userId = event.source.userId;
+                                
+                                libotUsers[userId].currentCaseId = null                
+                                currentCase.currentStage = null
+                                break;                                                            
+                        }
+                    }
+                }                                                   
+            
             }
             
-            if(!this.next) {                
-                this.next = new TreeStageNode("GPS", currentCase.currentStage, null);
-            }
-                
-            currentCase.currentStage = this.next;
             
             break;
             
         case "GPS":
         
-            if(event.type == "postback") {
-                message = { type: 'text', text: event.postback.params.datetime };
+            if(!this.wait) {                                
                 
-                var message = {
-                  "type": "template",
-                  "altText": "Pick the date and time",
-                  "template": {
-                      "type": "confirm",
-                      "text": "時間："　+ event.postback.params.datetime + "\n" + "能幫我選擇地址嗎？",
-                      "actions": [
-                          {  
-                             "type":"uri",
-                             "label":"選擇地址",
-                             "uri":"line://nv/location",
-                             "altUri": {
-                                "desktop" : "http://example.com/pc/page/222"
-                             }
-                          },
-                          {
-                            "type": "message",
-                            "label": "取消",
-                            "text": "取消"
-                          }
-                      ]
-                  }
-                }
+                this.waitSwitch();
+                                                   
+                var action1 = 　{  
+                                 "type":"uri",
+                                 "label":"選擇地址",
+                                 "uri":"line://nv/location",
+                                 "altUri": {
+                                    "desktop" : "http://example.com/pc/page/222"
+                                 }
+                              　};                                
                 
-                if(!this.next) {                
-                    this.next = new TreeStageNode("photo", currentCase.currentStage, null);
-                }
-                currentCase.currentStage = this.next;
-                
+                message = generateFlexMessage("您選擇的時間為："　+ currentCase.eventTimestamp + "\n" + "能幫我選擇地址嗎？", action1);                                  
+                                                                              
             } else {
-                message = { type: 'text', text: "使用者取消" };
-                var userId = event.source.userId;
+            
+                this.waitSwitch();
+            
+                if(event.type == "message"　&& event.message.type == "location") {
+                    
+                    currentCase.location = event.message
+                    
+                    if(!this.next) {                
+                        this.next = new TreeStageNode("photo", currentCase.currentStage, null);
+                    }
+                    
+                    currentCase.currentStage = this.next;
+                    
+                    message = currentCase.currentStage.createMessage(event, currentCase);
+                    
+                } else {
                 
-                libotUsers[userId].currentCaseId = null                
-                currentCase.currentStage = null
+                    if(event.type == "message") {
+                        switch(event.message.text) {
+                            case "取消":
+                                message = { type: 'text', text: "使用者取消" };
+                                var userId = event.source.userId;
+                                
+                                libotUsers[userId].currentCaseId = null                
+                                currentCase.currentStage = null
+                                break;
+                                
+                            case "前一步":
+                                console.log("前一步");
+                                currentCase.currentStage = this.prev;
+                                console.log(currentCase.currentStage);
+                                message = currentCase.currentStage.createMessage(event, currentCase);
+                                
+                                break;
+                        }
+                    }            
+                    
+                }   
+            
+            }    
                 
-            }                    
+                
+                               
             
             break;                                        
             
         case "photo":
             
-            if(event.type == "message"　&& event.message.type == "location" ) {
-            
-                message = { type: 'text', text: "最後一個步驟，請傳照片給我！"};
+            if(!this.wait) {                                
                 
-                if(!this.next) {                
-                    this.next = new TreeStageNode("end", currentCase.currentStage, null);
-                }
+                this.waitSwitch();
                 
-                currentCase.currentStage = this.next;
+                var action1 = null;
+                
+                message = generateFlexMessage("最後一個步驟囉～\n請直接傳照片給我！", action1);
+                                
             } else {
-                message = { type: 'text', text: "使用者取消" };
-                var userId = event.source.userId;
-                
-                libotUsers[userId].currentCaseId = null                
-                currentCase.currentStage = null
+            
+                this.waitSwitch();
+            
+                if(event.type == "message" && event.message.type == "image") {
+            
+                    if(!this.next) {                
+                        this.next = new TreeStageNode("end", currentCase.currentStage, null);
+                    }
+                    
+                    currentCase.image = event.message.id
+
+                    currentCase.currentStage = this.next;
+                    
+                    message = currentCase.currentStage.createMessage(event, currentCase);
+                    
+                } else {
+            
+                    if(event.type == "message") {
+                        switch(event.message.text) {
+                            case "取消":
+                                message = { type: 'text', text: "使用者取消" };
+                                var userId = event.source.userId;
+                                
+                                libotUsers[userId].currentCaseId = null                
+                                currentCase.currentStage = null
+                                break;
+                                
+                            case "前一步":
+                                console.log("前一步");
+                                currentCase.currentStage = this.prev;
+                                console.log(currentCase.currentStage);
+                                message = currentCase.currentStage.createMessage(event, currentCase);
+                                
+                                break;
+                        }
+                    }
+                    
+                }
                 
             }      
             
@@ -265,9 +468,12 @@ TreeStageNode.prototype.createMessage = function(event, currentCase) {
         case "end":
         
             message = { type: 'text', text: "完成"};
+            
+            console.log(currentCase);                
+            
             var userId = event.source.userId;
             libotUsers[userId].currentCaseId = null                
-            currentCase.currentStage = null
+            currentCase.currentStage = null                            
 
             break;
     
@@ -291,101 +497,169 @@ HoleStageNode.prototype.createMessage = function(event, currentCase) {
     
         case "start":
         
-            var message = {
-              "type": "template",
-              "altText": "Pick the date and time",
-              "template": {
-                  "type": "confirm",
-                  "text": "什麼時候發現的？",
-                  "actions": [
-                      {  
-                         "type":"datetimepicker",
-                         "label":"選擇日期時間",
-                         "data":"storeId=12345",
-                         "mode":"datetime",
-                         "initial":"2017-12-25t00:00",
-                         "max":"2018-01-24t23:59",
-                         "min":"2017-12-25t00:00"
-                      },
-                      {
-                        "type": "message",
-                        "label": "取消",
-                        "text": "取消"
-                      }
-                  ]
-              }
+            if(!this.wait) {
+            
+                this.waitSwitch();
+            
+                var action1 = {
+                                 "type":"datetimepicker",
+                                 "label":"選擇日期時間",
+                                 "data":"storeId=12345",
+                                 "mode":"datetime",
+                                 "initial":"2017-12-25t00:00",
+                                 "max":"2018-01-24t23:59",
+                                 "min":"2017-12-25t00:00"
+                              };
+            
+                message = generateFlexMessage("什麼時候發現的？", action1, false);                    
+            
+            } else {
+            
+                this.waitSwitch();
+            
+                if(event.type == "postback") {
+                    currentCase.eventTimestamp = event.postback.params.datetime;
+                    
+                    if(!this.next) {
+                        this.next = new HoleStageNode("GPS", currentCase.currentStage, null);
+                    }
+                    
+                    currentCase.currentStage = this.next;                                                                            
+                    
+                    message = currentCase.currentStage.createMessage(event, currentCase);
+                    
+                } else {
+                    if(event.type == "message") {
+                        switch(event.message.text) {
+                            case "取消":
+                                message = { type: 'text', text: "使用者取消" };
+                                var userId = event.source.userId;
+                                
+                                libotUsers[userId].currentCaseId = null                
+                                currentCase.currentStage = null
+                                break;                                                            
+                        }
+                    }
+                }                                                   
+            
             }
             
-            if(!this.next) {                
-                this.next = new HoleStageNode("GPS", currentCase.currentStage, null);
-            }
-                
-            currentCase.currentStage = this.next;
             
             break;
             
         case "GPS":
         
-            if(event.type == "postback") {
-                message = { type: 'text', text: event.postback.params.datetime };
+            if(!this.wait) {                                
                 
-                var message = {
-                  "type": "template",
-                  "altText": "Pick the date and time",
-                  "template": {
-                      "type": "confirm",
-                      "text": "時間："　+ event.postback.params.datetime + "\n" + "能幫我選擇地址嗎？",
-                      "actions": [
-                          {  
-                             "type":"uri",
-                             "label":"選擇地址",
-                             "uri":"line://nv/location",
-                             "altUri": {
-                                "desktop" : "http://example.com/pc/page/222"
-                             }
-                          },
-                          {
-                            "type": "message",
-                            "label": "取消",
-                            "text": "取消"
-                          }
-                      ]
-                  }
-                }
+                this.waitSwitch();
+                                                   
+                var action1 = 　{  
+                                 "type":"uri",
+                                 "label":"選擇地址",
+                                 "uri":"line://nv/location",
+                                 "altUri": {
+                                    "desktop" : "http://example.com/pc/page/222"
+                                 }
+                              　};                                
                 
-                if(!this.next) {                
-                    this.next = new HoleStageNode("photo", currentCase.currentStage, null);
-                }
-                currentCase.currentStage = this.next;
-                
+                message = generateFlexMessage("您選擇的時間為："　+ currentCase.eventTimestamp + "\n" + "能幫我選擇地址嗎？", action1);                                  
+                                                                              
             } else {
-                message = { type: 'text', text: "使用者取消" };
-                var userId = event.source.userId;
+            
+                this.waitSwitch();
+            
+                if(event.type == "message"　&& event.message.type == "location") {
+                    
+                    currentCase.location = event.message
+                    
+                    if(!this.next) {                
+                        this.next = new HoleStageNode("photo", currentCase.currentStage, null);
+                    }
+                    
+                    currentCase.currentStage = this.next;
+                    
+                    message = currentCase.currentStage.createMessage(event, currentCase);
+                    
+                } else {
                 
-                libotUsers[userId].currentCaseId = null                
-                currentCase.currentStage = null
+                    if(event.type == "message") {
+                        switch(event.message.text) {
+                            case "取消":
+                                message = { type: 'text', text: "使用者取消" };
+                                var userId = event.source.userId;
+                                
+                                libotUsers[userId].currentCaseId = null                
+                                currentCase.currentStage = null
+                                break;
+                                
+                            case "前一步":
+                                console.log("前一步");
+                                currentCase.currentStage = this.prev;
+                                console.log(currentCase.currentStage);
+                                message = currentCase.currentStage.createMessage(event, currentCase);
+                                
+                                break;
+                        }
+                    }            
+                    
+                }   
+            
+            }    
                 
-            }                    
+                
+                               
             
             break;                                        
             
         case "photo":
             
-            if(event.type == "message"　&& event.message.type == "location" ) {
-            
-                message = { type: 'text', text: "最後一個步驟，請傳照片給我！"};
+            if(!this.wait) {                                
                 
-                if(!this.next) {                
-                    this.next = new HoleStageNode("end", currentCase.currentStage, null);
-                }
+                this.waitSwitch();
                 
-                currentCase.currentStage = this.next;
+                var action1 = null;
+                
+                message = generateFlexMessage("最後一個步驟囉～\n請直接傳照片給我！", action1);
+                                
             } else {
-                message = { type: 'text', text: "使用者取消" };
-                var userId = event.source.userId;
-                
-                libotUsers[userId].currentCaseId = null                
-                currentCase.currentStage = null
+            
+                this.waitSwitch();
+            
+                if(event.type == "message" && event.message.type == "image") {
+            
+                    if(!this.next) {                
+                        this.next = new HoleStageNode("end", currentCase.currentStage, null);
+                    }
+                    
+                    currentCase.image = event.message.id
+
+                    currentCase.currentStage = this.next;
+                    
+                    message = currentCase.currentStage.createMessage(event, currentCase);
+                    
+                } else {
+            
+                    if(event.type == "message") {
+                        switch(event.message.text) {
+                            case "取消":
+                                message = { type: 'text', text: "使用者取消" };
+                                var userId = event.source.userId;
+                                
+                                libotUsers[userId].currentCaseId = null                
+                                currentCase.currentStage = null
+                                break;
+                                
+                            case "前一步":
+                                console.log("前一步");
+                                currentCase.currentStage = this.prev;
+                                console.log(currentCase.currentStage);
+                                message = currentCase.currentStage.createMessage(event, currentCase);
+                                
+                                break;
+                        }
+                    }
+                    
+                }
                 
             }      
             
@@ -394,9 +668,12 @@ HoleStageNode.prototype.createMessage = function(event, currentCase) {
         case "end":
         
             message = { type: 'text', text: "完成"};
+            
+            console.log(currentCase);                
+            
             var userId = event.source.userId;
             libotUsers[userId].currentCaseId = null                
-            currentCase.currentStage = null
+            currentCase.currentStage = null                            
 
             break;
     
@@ -420,101 +697,169 @@ SignStageNode.prototype.createMessage = function(event, currentCase) {
     
         case "start":
         
-            var message = {
-              "type": "template",
-              "altText": "Pick the date and time",
-              "template": {
-                  "type": "confirm",
-                  "text": "什麼時候發現的？",
-                  "actions": [
-                      {  
-                         "type":"datetimepicker",
-                         "label":"選擇日期時間",
-                         "data":"storeId=12345",
-                         "mode":"datetime",
-                         "initial":"2017-12-25t00:00",
-                         "max":"2018-01-24t23:59",
-                         "min":"2017-12-25t00:00"
-                      },
-                      {
-                        "type": "message",
-                        "label": "取消",
-                        "text": "取消"
-                      }
-                  ]
-              }
+            if(!this.wait) {
+            
+                this.waitSwitch();
+            
+                var action1 = {
+                                 "type":"datetimepicker",
+                                 "label":"選擇日期時間",
+                                 "data":"storeId=12345",
+                                 "mode":"datetime",
+                                 "initial":"2017-12-25t00:00",
+                                 "max":"2018-01-24t23:59",
+                                 "min":"2017-12-25t00:00"
+                              };
+            
+                message = generateFlexMessage("什麼時候發現的？", action1, false);                    
+            
+            } else {
+            
+                this.waitSwitch();
+            
+                if(event.type == "postback") {
+                    currentCase.eventTimestamp = event.postback.params.datetime;
+                    
+                    if(!this.next) {
+                        this.next = new SignStageNode("GPS", currentCase.currentStage, null);
+                    }
+                    
+                    currentCase.currentStage = this.next;                                                                            
+                    
+                    message = currentCase.currentStage.createMessage(event, currentCase);
+                    
+                } else {
+                    if(event.type == "message") {
+                        switch(event.message.text) {
+                            case "取消":
+                                message = { type: 'text', text: "使用者取消" };
+                                var userId = event.source.userId;
+                                
+                                libotUsers[userId].currentCaseId = null                
+                                currentCase.currentStage = null
+                                break;                                                            
+                        }
+                    }
+                }                                                   
+            
             }
             
-            if(!this.next) {                
-                this.next = new SignStageNode("GPS", currentCase.currentStage, null);
-            }
-                
-            currentCase.currentStage = this.next;
             
             break;
             
         case "GPS":
         
-            if(event.type == "postback") {
-                message = { type: 'text', text: event.postback.params.datetime };
+            if(!this.wait) {                                
                 
-                var message = {
-                  "type": "template",
-                  "altText": "Pick the date and time",
-                  "template": {
-                      "type": "confirm",
-                      "text": "時間："　+ event.postback.params.datetime + "\n" + "能幫我選擇地址嗎？",
-                      "actions": [
-                          {  
-                             "type":"uri",
-                             "label":"選擇地址",
-                             "uri":"line://nv/location",
-                             "altUri": {
-                                "desktop" : "http://example.com/pc/page/222"
-                             }
-                          },
-                          {
-                            "type": "message",
-                            "label": "取消",
-                            "text": "取消"
-                          }
-                      ]
-                  }
-                }
+                this.waitSwitch();
+                                                   
+                var action1 = 　{  
+                                 "type":"uri",
+                                 "label":"選擇地址",
+                                 "uri":"line://nv/location",
+                                 "altUri": {
+                                    "desktop" : "http://example.com/pc/page/222"
+                                 }
+                              　};                                
                 
-                if(!this.next) {                
-                    this.next = new SignStageNode("photo", currentCase.currentStage, null);
-                }
-                currentCase.currentStage = this.next;
-                
+                message = generateFlexMessage("您選擇的時間為："　+ currentCase.eventTimestamp + "\n" + "能幫我選擇地址嗎？", action1);                                  
+                                                                              
             } else {
-                message = { type: 'text', text: "使用者取消" };
-                var userId = event.source.userId;
+            
+                this.waitSwitch();
+            
+                if(event.type == "message"　&& event.message.type == "location") {
+                    
+                    currentCase.location = event.message
+                    
+                    if(!this.next) {                
+                        this.next = new SignStageNode("photo", currentCase.currentStage, null);
+                    }
+                    
+                    currentCase.currentStage = this.next;
+                    
+                    message = currentCase.currentStage.createMessage(event, currentCase);
+                    
+                } else {
                 
-                libotUsers[userId].currentCaseId = null                
-                currentCase.currentStage = null
+                    if(event.type == "message") {
+                        switch(event.message.text) {
+                            case "取消":
+                                message = { type: 'text', text: "使用者取消" };
+                                var userId = event.source.userId;
+                                
+                                libotUsers[userId].currentCaseId = null                
+                                currentCase.currentStage = null
+                                break;
+                                
+                            case "前一步":
+                                console.log("前一步");
+                                currentCase.currentStage = this.prev;
+                                console.log(currentCase.currentStage);
+                                message = currentCase.currentStage.createMessage(event, currentCase);
+                                
+                                break;
+                        }
+                    }            
+                    
+                }   
+            
+            }    
                 
-            }                    
+                
+                               
             
             break;                                        
             
         case "photo":
             
-            if(event.type == "message"　&& event.message.type == "location" ) {
-            
-                message = { type: 'text', text: "最後一個步驟，請傳照片給我！"};
+            if(!this.wait) {                                
                 
-                if(!this.next) {                
-                    this.next = new SignStageNode("end", currentCase.currentStage, null);
-                }
+                this.waitSwitch();
                 
-                currentCase.currentStage = this.next;
+                var action1 = null;
+                
+                message = generateFlexMessage("最後一個步驟囉～\n請直接傳照片給我！", action1);
+                                
             } else {
-                message = { type: 'text', text: "使用者取消" };
-                var userId = event.source.userId;
-                
-                libotUsers[userId].currentCaseId = null                
-                currentCase.currentStage = null
+            
+                this.waitSwitch();
+            
+                if(event.type == "message" && event.message.type == "image") {
+            
+                    if(!this.next) {                
+                        this.next = new SignStageNode("end", currentCase.currentStage, null);
+                    }
+                    
+                    currentCase.image = event.message.id
+
+                    currentCase.currentStage = this.next;
+                    
+                    message = currentCase.currentStage.createMessage(event, currentCase);
+                    
+                } else {
+            
+                    if(event.type == "message") {
+                        switch(event.message.text) {
+                            case "取消":
+                                message = { type: 'text', text: "使用者取消" };
+                                var userId = event.source.userId;
+                                
+                                libotUsers[userId].currentCaseId = null                
+                                currentCase.currentStage = null
+                                break;
+                                
+                            case "前一步":
+                                console.log("前一步");
+                                currentCase.currentStage = this.prev;
+                                console.log(currentCase.currentStage);
+                                message = currentCase.currentStage.createMessage(event, currentCase);
+                                
+                                break;
+                        }
+                    }
+                    
+                }
                 
             }      
             
@@ -523,9 +868,12 @@ SignStageNode.prototype.createMessage = function(event, currentCase) {
         case "end":
         
             message = { type: 'text', text: "完成"};
+            
+            console.log(currentCase);                
+            
             var userId = event.source.userId;
             libotUsers[userId].currentCaseId = null                
-            currentCase.currentStage = null
+            currentCase.currentStage = null                            
 
             break;
     
@@ -549,101 +897,169 @@ OtherStageNode.prototype.createMessage = function(event, currentCase) {
     
         case "start":
         
-            var message = {
-              "type": "template",
-              "altText": "Pick the date and time",
-              "template": {
-                  "type": "confirm",
-                  "text": "什麼時候發現的？",
-                  "actions": [
-                      {  
-                         "type":"datetimepicker",
-                         "label":"選擇日期時間",
-                         "data":"storeId=12345",
-                         "mode":"datetime",
-                         "initial":"2017-12-25t00:00",
-                         "max":"2018-01-24t23:59",
-                         "min":"2017-12-25t00:00"
-                      },
-                      {
-                        "type": "message",
-                        "label": "取消",
-                        "text": "取消"
-                      }
-                  ]
-              }
+            if(!this.wait) {
+            
+                this.waitSwitch();
+            
+                var action1 = {
+                                 "type":"datetimepicker",
+                                 "label":"選擇日期時間",
+                                 "data":"storeId=12345",
+                                 "mode":"datetime",
+                                 "initial":"2017-12-25t00:00",
+                                 "max":"2018-01-24t23:59",
+                                 "min":"2017-12-25t00:00"
+                              };
+            
+                message = generateFlexMessage("什麼時候發現的？", action1, false);                    
+            
+            } else {
+            
+                this.waitSwitch();
+            
+                if(event.type == "postback") {
+                    currentCase.eventTimestamp = event.postback.params.datetime;
+                    
+                    if(!this.next) {
+                        this.next = new OtherStageNode("GPS", currentCase.currentStage, null);
+                    }
+                    
+                    currentCase.currentStage = this.next;                                                                            
+                    
+                    message = currentCase.currentStage.createMessage(event, currentCase);
+                    
+                } else {
+                    if(event.type == "message") {
+                        switch(event.message.text) {
+                            case "取消":
+                                message = { type: 'text', text: "使用者取消" };
+                                var userId = event.source.userId;
+                                
+                                libotUsers[userId].currentCaseId = null                
+                                currentCase.currentStage = null
+                                break;                                                            
+                        }
+                    }
+                }                                                   
+            
             }
             
-            if(!this.next) {                
-                this.next = new SignStageNode("GPS", currentCase.currentStage, null);
-            }
-                
-            currentCase.currentStage = this.next;
             
             break;
             
         case "GPS":
         
-            if(event.type == "postback") {
-                message = { type: 'text', text: event.postback.params.datetime };
+            if(!this.wait) {                                
                 
-                var message = {
-                  "type": "template",
-                  "altText": "Pick the date and time",
-                  "template": {
-                      "type": "confirm",
-                      "text": "時間："　+ event.postback.params.datetime + "\n" + "能幫我選擇地址嗎？",
-                      "actions": [
-                          {  
-                             "type":"uri",
-                             "label":"選擇地址",
-                             "uri":"line://nv/location",
-                             "altUri": {
-                                "desktop" : "http://example.com/pc/page/222"
-                             }
-                          },
-                          {
-                            "type": "message",
-                            "label": "取消",
-                            "text": "取消"
-                          }
-                      ]
-                  }
-                }
+                this.waitSwitch();
+                                                   
+                var action1 = 　{  
+                                 "type":"uri",
+                                 "label":"選擇地址",
+                                 "uri":"line://nv/location",
+                                 "altUri": {
+                                    "desktop" : "http://example.com/pc/page/222"
+                                 }
+                              　};                                
                 
-                if(!this.next) {                
-                    this.next = new SignStageNode("photo", currentCase.currentStage, null);
-                }
-                currentCase.currentStage = this.next;
-                
+                message = generateFlexMessage("您選擇的時間為："　+ currentCase.eventTimestamp + "\n" + "能幫我選擇地址嗎？", action1);                                  
+                                                                              
             } else {
-                message = { type: 'text', text: "使用者取消" };
-                var userId = event.source.userId;
+            
+                this.waitSwitch();
+            
+                if(event.type == "message"　&& event.message.type == "location") {
+                    
+                    currentCase.location = event.message
+                    
+                    if(!this.next) {                
+                        this.next = new OtherStageNode("photo", currentCase.currentStage, null);
+                    }
+                    
+                    currentCase.currentStage = this.next;
+                    
+                    message = currentCase.currentStage.createMessage(event, currentCase);
+                    
+                } else {
                 
-                libotUsers[userId].currentCaseId = null                
-                currentCase.currentStage = null
+                    if(event.type == "message") {
+                        switch(event.message.text) {
+                            case "取消":
+                                message = { type: 'text', text: "使用者取消" };
+                                var userId = event.source.userId;
+                                
+                                libotUsers[userId].currentCaseId = null                
+                                currentCase.currentStage = null
+                                break;
+                                
+                            case "前一步":
+                                console.log("前一步");
+                                currentCase.currentStage = this.prev;
+                                console.log(currentCase.currentStage);
+                                message = currentCase.currentStage.createMessage(event, currentCase);
+                                
+                                break;
+                        }
+                    }            
+                    
+                }   
+            
+            }    
                 
-            }                    
+                
+                               
             
             break;                                        
             
         case "photo":
             
-            if(event.type == "message"　&& event.message.type == "location" ) {
-            
-                message = { type: 'text', text: "最後一個步驟，請傳照片給我！"};
+            if(!this.wait) {                                
                 
-                if(!this.next) {                
-                    this.next = new SignStageNode("end", currentCase.currentStage, null);
-                }
+                this.waitSwitch();
                 
-                currentCase.currentStage = this.next;
+                var action1 = null;
+                
+                message = generateFlexMessage("最後一個步驟囉～\n請直接傳照片給我！", action1);
+                                
             } else {
-                message = { type: 'text', text: "使用者取消" };
-                var userId = event.source.userId;
-                
-                libotUsers[userId].currentCaseId = null                
-                currentCase.currentStage = null
+            
+                this.waitSwitch();
+            
+                if(event.type == "message" && event.message.type == "image") {
+            
+                    if(!this.next) {                
+                        this.next = new OtherStageNode("end", currentCase.currentStage, null);
+                    }
+                    
+                    currentCase.image = event.message.id
+
+                    currentCase.currentStage = this.next;
+                    
+                    message = currentCase.currentStage.createMessage(event, currentCase);
+                    
+                } else {
+            
+                    if(event.type == "message") {
+                        switch(event.message.text) {
+                            case "取消":
+                                message = { type: 'text', text: "使用者取消" };
+                                var userId = event.source.userId;
+                                
+                                libotUsers[userId].currentCaseId = null                
+                                currentCase.currentStage = null
+                                break;
+                                
+                            case "前一步":
+                                console.log("前一步");
+                                currentCase.currentStage = this.prev;
+                                console.log(currentCase.currentStage);
+                                message = currentCase.currentStage.createMessage(event, currentCase);
+                                
+                                break;
+                        }
+                    }
+                    
+                }
                 
             }      
             
@@ -652,9 +1068,12 @@ OtherStageNode.prototype.createMessage = function(event, currentCase) {
         case "end":
         
             message = { type: 'text', text: "完成"};
+            
+            console.log(currentCase);                
+            
             var userId = event.source.userId;
             libotUsers[userId].currentCaseId = null                
-            currentCase.currentStage = null
+            currentCase.currentStage = null                            
 
             break;
     
@@ -664,12 +1083,86 @@ OtherStageNode.prototype.createMessage = function(event, currentCase) {
 
 }
 
+function generateFlexMessage(text1, action1, cancel = true) {
+    
+    var flexMessage = { 
+                        "type": "flex",
+                        "altText": "flex message",
+                        "contents": 
+                        {
+                          "type": "bubble",
+                          "body": {
+                            "type": "box",
+                            "layout": "vertical",
+                            "spacing": "md",
+                            "contents": [
+                              {
+                                "type": "text",
+                                "text": text1,
+                                "size": "lg",
+                                "weight": "bold",
+                                "wrap": true
+                              }
+                            ]
+                          },
+                          "footer": {
+                            "type": "box",
+                            "layout": "vertical",
+                            "spacing": "sm",
+                            "contents": [
+                              {
+                                "type": "button",
+                                "style": "link",
+                                "height": "sm",
+                                "action": action1
+                              },
+                              {
+                                "type": "button",
+                                "style": "link",
+                                "height": "sm",
+                                "action": {  
+                                   "type":"message",
+                                   "label":"前一步",
+                                   "text":"前一步"
+                                }                      
+                              },
+                              {
+                                "type": "button",
+                                "style": "link",
+                                "height": "sm",
+                                "action": {  
+                                   "type":"message",
+                                   "label":"取消",
+                                   "text":"取消"
+                                }   
+                              },
+                              {
+                                "type": "spacer",
+                                "size": "sm"
+                              }
+                            ]
+                          }
+                        }
+                      }
+    
+    if(!action1) {
+        flexMessage["contents"]["footer"]["contents"] = flexMessage["contents"]["footer"]["contents"].slice(1, 3);
+    }
+                      
+    if(!cancel) {
+        flexMessage["contents"]["footer"]["contents"] = flexMessage["contents"]["footer"]["contents"].slice(0, 1).concat(flexMessage["contents"]["footer"]["contents"].slice(2, 3));
+    }
+
+    return flexMessage
+
+}
+
 var TYPE_TO_STRING = {
     0: "路燈故障",
     1: "公園樹木",
     2: "道路坑洞",
     3: "號誌反光鏡",
-    4: "其他問題",    
+    4: "其他問題"
 }
 
 var STRING_TO_TYPE = {}
@@ -684,10 +1177,11 @@ var libotCases = {};　
 var Case = function(userId, timestamp, type) {
    
     this.caseId = _uuid();
-    this.locations = [];
+    this.location = null;
     this.userId = userId;    
-    this.timestamp = timestamp;
-    this.type = type;
+    this.createTimestamp = timestamp; // case 成立的時間
+    this.eventTimestamp = null;
+    this.type = type; // int
     
     switch(TYPE_TO_STRING[this.type]) {
         case "路燈故障":
@@ -724,8 +1218,10 @@ var User = function(userId, timestamp) {
 
 User.prototype.process = function(event) {
 
-    var message = null
+    console.log(event);
 
+    var message = null
+    
     if(event.type == "message" && event.message.text in STRING_TO_TYPE) {         
         var newCase = new Case(event.source.userId, event.timestamp, STRING_TO_TYPE[event.message.text]);            
         console.log(newCase)    
@@ -735,7 +1231,7 @@ User.prototype.process = function(event) {
             case "公園樹木":            
             case "道路坑洞":            
             case "號誌反光鏡":
-            case "其他問題":
+            case "其他問題":                
                 this.caseIds[newCase.caseId] = true;
                 this.currentCaseId = newCase.caseId;            
                 libotCases[newCase.caseId] = newCase;
@@ -749,7 +1245,7 @@ User.prototype.process = function(event) {
         // 要對應到正確的Nodes    
         
         if(libotUsers[event.source.userId].currentCaseId) {
-            var currentCase = libotCases[libotUsers[event.source.userId].currentCaseId];        
+            var currentCase = libotCases[libotUsers[event.source.userId].currentCaseId];                    
             message = currentCase.currentStage.createMessage(event, libotCases[this.currentCaseId]);
         } else {
             message = { type: 'text', text: "請選取想要回報的類別" };
@@ -759,35 +1255,7 @@ User.prototype.process = function(event) {
     return message
 }
 
-const INVITE_LINK = "https://line.me/R/ti/p/%40762jfknc";
 
-const line = require('@line/bot-sdk');
-const express = require('express');
-
-// create LINE SDK config from env variables
-const config = {
-  channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.CHANNEL_SECRET,
-};
-
-// create LINE SDK client
-const client = new line.Client(config);
-
-// create Express app
-// about Express itself: https://expressjs.com/
-const app = express();
-
-// register a webhook handler with middleware
-// about the middleware, please refer to doc
-app.post('/callback', line.middleware(config), (req, res) => {
-  Promise
-    .all(req.body.events.map(handleEvent))
-    .then((result) => res.json(result))
-    .catch((err) => {
-      console.error(err);
-      res.status(500).end();
-    });
-});
 
 
 // https://cythilya.github.io/2017/03/12/uuid/
