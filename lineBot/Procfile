@@ -1,1 +1,1 @@
-web: node lineBot/index.js -p $PORT
+web: node index.js -p $PORT
