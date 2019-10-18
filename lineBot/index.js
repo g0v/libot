@@ -217,7 +217,15 @@ LampStageNode.prototype.createMessage = function(event, currentCase) {
                 
                 this.waitSwitch();
                 
-                var action1 = null;
+                
+                var action1 = 　{  
+                                 "type":"uri",
+                                 "label":"選擇圖片",
+                                 "uri":"line://nv/cameraRoll/single",
+                                 "altUri": {
+                                    "desktop" : "http://example.com/pc/page/222"
+                                 }
+                              　}; 
                 
                 message = generateFlexMessage("最後一個步驟囉～\n請直接傳照片給我！", action1);
                                 
