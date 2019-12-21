@@ -139,32 +139,25 @@ function generateFlexMessage(text1, action1, cancel = true) {
 
 var FSM_TEMPLATE = {
     init: 'Free',
-    transitions: [
-        {name: 'sdw', from: 'SelectDate', to: 'SelectDateWait'},
-        {name: 'saw', from: 'SelectAddress', to: 'SelectAddressWait'},
-        {name: 'spw', from: 'SelectPhoto', to: 'SelectPhotoWait'},
-		{name: 'f2d', from: 'Free', to: 'SelectDate'},
-		{name: 'd2a', from: 'SelectDateWait', to: 'SelectAddress'},
-		{name: 'a2p', from: 'SelectAddressWait', to: 'SelectPhoto'},
-		{name: 'p2e', from: 'SelectPhotoWait', to: 'End'},
+    transitions: [		
+		{name: 'f2d', from: 'Free', to: 'Date'},
+		{name: 'd2a', from: 'Date', to: 'Address'},
+		{name: 'a2p', from: 'Address', to: 'Photo'},
+		{name: 'p2e', from: 'Photo', to: 'End'},
 		{name: 'e2f', from: 'End', to: 'Free'},
 		{name: 'f2l', from: 'Free', to: 'List'},
 		{name: 'goto', from: '*', to: function(s) { return s } }
     ],
-    methods: {
-        
-		onSdw: function(fsm) {
-			console.log("onSdw")
+	data: {
+		message: null
+	},
+    methods: {		
+		/*onF2d: function(transition, event, user, currentCase) {
+			var fsm = transition.fsm;
 			
-			//return message;
-		},
-		onSaw: function(fsm) {
-			console.log("onSaw")
-		},
-		onSpw: function(fsm) {
-			console.log("onSpw")
-		},
-		onF2d: function(fsm) {
+			console.log('OK');
+		},*/
+		/*onF2d: function(self, event, user, currentCase) {
 			console.log("onF2d")
 			var action1 = {
 							 "type":"datetimepicker",
@@ -180,72 +173,243 @@ var FSM_TEMPLATE = {
 			
 			return message;
 		},
-		onD2a: function(fsm) {
-			console.log("onD2a")
-		},
-		onA2p: function(fsm) {
-			console.log("onA2p")
-		},
-		onP2e: function(fsm) {
-			console.log("onP2e")
-		},
-		onE2f: function(fsm) {
-			console.log("onE2f")
-		},
-		onF2l: function(fsm) {
-			console.log("onF2l")
-		},
-		handler: function(fsm, event) {
-			console.log("fsm.state", fsm.state)
-			switch(fsm.state) {
-				case "Free": {
+		onD2a: function(self, event, user, currentCase) {
+			console.log("onD2a");
+			
+			var fsm = self.fsm;
+			var nextState = null;
+			var message = null;
+			
+			// currentCase.eventTimestamp is because user says previous step
+			if(event.type == "postback" || currentCase.eventTimestamp !== null) { 
+				if(!currentCase.eventTimestamp) {
+					currentCase.eventTimestamp = event.postback.params.datetime;
+				}
+				var action1 = 　{  
+                                 "type":"uri",
+                                 "label":"選擇地址",
+                                 "uri":"line://nv/location",
+                                 "altUri": {
+                                    "desktop" : "http://example.com/pc/page/222"
+                                 }
+                              　};
+				message = generateFlexMessage("您選擇的時間為："　+ currentCase.eventTimestamp + "\n" + "能幫我選擇地址嗎？", action1);
+				
+			} else {
+				if(event.type == "message") {
 					switch(event.message.text) {
-						case "路燈故障":                       
-						case "公園樹木":            
-						case "道路坑洞":            
-						case "交通設施":
-						case "環境清潔":                
-							var message = fsm.f2d();
-							break;
-						case "查看進度":
-							var message = { type: 'text', text: "查看進度" };
-							break;
-						default:
-							var message = { type: 'text', text: "請選取想要回報的類別" };
+						case "取消":
+							console.log("Cancel");
+							message = { type: 'text', text: "使用者取消" };
+							var userId = event.source.userId;
+							libotUsers[userId].currentCaseId = null;
+							nextState = "Free"
 							break;
 					}
-					break;
-				}
-				case "SelectDate": {
-					fsm.sdw();
-					break;
-				}
-				case "SelectDateWait": {
-					fsm.d2a();
-					break;
-				}
-				case "SelectAddress": {
-					fsm.saw();
-					break;
-				}
-				case "SelectAddressWait": {
-					fsm.a2p();
-					break;
-				}
-				case "SelectPhoto": {
-					fsm.spw();
-					break;
-				}				
-				case "SelectPhotoWait": {
-					fsm.p2e();
-					break;
-				}
-				case "End": {
-					fsm.e2f();
-					break;
 				}
 			}
-			return message;
+			return {"message": message, "nextState": nextState};
+		},
+		onA2p: function(self, event, user, currentCase) {
+			console.log("onA2p")
+			
+			var fsm = self.fsm;
+			var nextState = null;
+			var message = null;
+			
+			if(event.type == "message"　&& event.message.type == "location") {
+				
+				currentCase.location = event.message								
+				currentCase.currentStage = this.next;
+
+			} else {
+			
+				if(event.type == "message") {
+					switch(event.message.text) {
+						case "取消":
+							console.log("Cancel");
+							message = { type: 'text', text: "使用者取消" };
+							var userId = event.source.userId;
+							libotUsers[userId].currentCaseId = null;
+							nextState = "Free"
+							break;
+							
+						case "前一步":
+							console.log("前一步");
+							nextState = "Free"
+							
+							break;
+					}
+				}            
+				
+			}
+			
+			return {"message": message, "nextState": nextState};
+		},
+		onP2e: function(self, event, user, currentCase) {
+			console.log("onP2e")
+		},
+		onE2f: function(self, event, user, currentCase) {
+			console.log("onE2f")
+		},
+		onF2l: function(self, event, user, currentCase) {
+			console.log("onF2l")
+		},*/
+		onEnd: function(transition) {
+			console.log('onEnd')
+			var fsm = transition.fsm;
+			
+			fsm.message = { type: 'text', text: "完成" };
+		},
+		onPhoto: function(transition) {
+			console.log('onPhoto')
+			var fsm = transition.fsm;
+			
+			var action1 = 　{  
+                                 "type":"uri",
+                                 "label":"選擇圖片",
+                                 "uri":"line://nv/cameraRoll/single",
+                                 "altUri": {
+                                    "desktop" : "http://example.com/pc/page/222"
+                                 }
+                              　}; 
+                
+			fsm.message = generateFlexMessage("最後一個步驟囉～\n請直接傳照片給我！", action1);
+		},
+		onAddress: function(transition) {
+			console.log('onAddress')
+			
+			var fsm = transition.fsm;
+			
+			var action1 = 　{  
+                                 "type":"uri",
+                                 "label":"選擇地址",
+                                 "uri":"line://nv/location",
+                                 "altUri": {
+                                    "desktop" : "http://example.com/pc/page/222"
+                                 }
+                              　};
+			fsm.message = generateFlexMessage("您選擇的時間為："　+ fsm.currentCase.eventTimestamp + "\n" + "能幫我選擇地址嗎？", action1);
+		},
+		onDate: function(transition) {
+			console.log('onDate')
+			
+			var fsm = transition.fsm;
+			
+			var action1 = {
+							 "type":"datetimepicker",
+							 "label":"選擇日期時間",
+							 "data":"storeId=12345",
+							 "mode":"datetime",
+							 "initial":"2017-12-25t00:00",
+							 "max":"2033-01-24t23:59",
+							 "min":"2017-12-25t00:00"
+						  };
+		
+			fsm.message = generateFlexMessage("什麼時候發現的？", action1, false);
+		},
+		handler: function(event, user, currentCase) {
+			var fsm = user.fsm;
+			var message = null;
+			
+			console.log("fsm.state", fsm.state)
+			
+			fsm.message = null;
+			fsm.event = event;
+			fsm.user = user;
+			fsm.currentCase = currentCase;
+			
+			while(fsm.message === null) {
+				switch(fsm.state) {
+					case "Free": {
+						if(event.type == "message") {
+							switch(event.message.text) {
+								case "路燈故障":
+								case "公園樹木":
+								case "道路坑洞":
+								case "交通設施":
+								case "環境清潔":
+									fsm.f2d();
+									break;
+								case "查看進度":
+									fsm.message = { type: 'text', text: "查看進度" };
+									break;
+								default:
+									fsm.message = { type: 'text', text: "請選取想要回報的類別" };
+									break;
+							}
+						} else {
+							fsm.message = { type: 'text', text: "請選取想要回報的類別" };
+						}
+						break;
+					}
+					case "Date": {
+						
+						if(event.type == "message" && event.message.text == "取消") {
+							console.log("Cancel");
+							var userId = event.source.userId;
+							libotUsers[userId].currentCaseId = null;
+							fsm.message = { type: 'text', text: "使用者取消" };
+							fsm.goto("Free");
+							break;
+						} else if(event.type == "postback") { 
+							
+							currentCase.eventTimestamp = event.postback.params.datetime;
+							console.log("currentCase.eventTimestamp", currentCase.eventTimestamp);
+							
+							fsm.d2a();
+						} else {						
+							fsm.message = { type: 'text', text: "抱歉～我聽不懂～" };
+						}
+						
+						break;
+					}
+					case "Address": {
+						
+						if(event.type == "message" && event.message.text == "取消") {
+							console.log("Cancel");
+							var userId = event.source.userId;
+							libotUsers[userId].currentCaseId = null;
+							fsm.message = { type: 'text', text: "使用者取消" };
+							fsm.goto("Free");
+							break;
+						} else if(event.type == "message" && event.message.text == "前一步") {
+							fsm.message = null; 
+							fsm.goto("Date");
+						} else if(event.type == "message"　&& event.message.type == "location") {
+							currentCase.location = event.message								
+							fsm.a2p();
+						} else {						
+							fsm.message = { type: 'text', text: "抱歉～我聽不懂～" };
+						}
+
+						break;
+					}				
+					case "Photo": {
+						if(event.type == "message" && event.message.text == "取消") {
+							console.log("Cancel");
+							var userId = event.source.userId;
+							libotUsers[userId].currentCaseId = null;
+							fsm.message = { type: 'text', text: "使用者取消" };
+							fsm.goto("Free");
+							break;
+						} else if(event.type == "message" && event.message.text == "前一步") {
+							fsm.message = null;
+							fsm.goto("Address");
+						} else if(event.type == "message" && event.message.type == "image") {
+							currentCase.image = event.message.id;
+							fsm.p2e();
+							fsm.goto('Free');
+						} else {						
+							fsm.message = { type: 'text', text: "抱歉～我聽不懂～" };
+						}
+						break;
+					}								
+				}
+			}
+			console.log(fsm.message);
+			return fsm.message;
+			
 		}
     }
 }
@@ -276,11 +440,12 @@ User.prototype.process = function(event) {
 
     console.log(event);
 
-    var message = null	
+    var message = null;
+	var currentCase = null;
 	
     if(event.type == "message" && event.message.text in STRING_TO_TYPE) {         
-        var newCase = new Case(event.source.userId, event.timestamp, STRING_TO_TYPE[event.message.text]);            
-        console.log(newCase)    
+        var newCase = new Case(event.source.userId, event.timestamp, STRING_TO_TYPE[event.message.text]);
+        console.log(newCase); 
 		this.caseIds[newCase.caseId] = true;
 		this.currentCaseId = newCase.caseId;     
 		libotCases[newCase.caseId] = newCase;
@@ -290,10 +455,18 @@ User.prototype.process = function(event) {
 	if(event.type == "message" && event.message.text == "查看進度") {
 		this.fsm.goto('Free');
 	}
-
-	message = this.fsm.handler(this.fsm, event);
+	
+	if(this.currentCaseId !== null) {
+		currentCase = libotCases[this.currentCaseId];
+	}
+	
+	//console.log('hello', currentCase)
+	
+	//this.fsm.f2d();
+	
+	message = this.fsm.handler(event, this, currentCase);
     
-    return message
+    return message;
 }
 
 function group_reply(event) {
@@ -318,9 +491,9 @@ function user_reply(event) {
         libotUsers[event.source.userId] = new User(event.source.userId);
     }
     
-    console.log("libotUsers", libotUsers)
+    console.log("libotUsers", libotUsers);
     
-    var message = null
+    var message = null;
          
     message = libotUsers[event.source.userId].process(event);                            
     
