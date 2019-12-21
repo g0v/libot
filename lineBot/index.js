@@ -48,7 +48,7 @@ for(var type in TYPE_TO_STRING) {
 }
 
 var libotUsers = {}; //key = userId
-var libotCases = {};　
+var libotCases = {}; //key = caseId
 
 // https://cythilya.github.io/2017/03/12/uuid/
 function _uuid() {
