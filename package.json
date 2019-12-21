@@ -11,9 +11,8 @@
   "license": "ISC",
   "dependencies": {
     "@line/bot-sdk": "^6.8.2",
-    "express": "^4.17.1"
+    "express": "^4.17.1",
+    "javascript-state-machine": "^3.1.0"
   },
-  "devDependencies": {
-    "javascript-state-machine": "3.1.0"
-  }
+  "devDependencies": {}
 }
