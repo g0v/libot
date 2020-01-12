@@ -1,0 +1,15 @@
+{
+  "name": "googlesheethandler",
+  "version": "1.0.0",
+  "description": "googlesheethandler\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[Da google sheet handler for libot project",
+  "main": "sheet.js",
+  "dependencies": {
+    "googleapis": "^46.0.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}

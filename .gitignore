@@ -1,3 +1,7 @@
 
 # nodejs
 lineBot/node_modules
+googlesheetHandler/node_modules/
+googlesheetHandler/package-lock.json
+googlesheetHandler/token.json
+googlesheetHandler/credentials.json
