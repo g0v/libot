@@ -9,45 +9,22 @@ const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 // time.
 const TOKEN_PATH = 'token.json';
 
-  /**
-   * Prints the names and majors of students in a sample spreadsheet:
-   * @see https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit
-   * @param {google.auth.OAuth2} auth The authenticated Google OAuth client.
-   */
-function listMajors(oAuth2Client,sheetID) {
-    const sheets = google.sheets({version: 'v4', auth: oAuth2Client});
-    sheets.spreadsheets.values.get({
-      spreadsheetId: sheetID,
-      range: 'DEMO!A1:N100',
-    }, (err, res) => {
-      if (err) return console.log('The API returned an error: ' + err);
-      const rows = res.data.values;
-      if (rows.length) {
-        console.log('Name, Major:');
-        // Print columns A and E, which correspond to indices 0 and 4.
-        rows.map((row) => {
-          console.log(`${row[0]}, ${row[4]}`);
-        });
-      } else {
-        console.log('No data found.');
-      }
-    }); // end get callback
-}
+const COLUMN_MAP = {
+  "案件編號":0,
+  "行政區":1,
+  "里別":2,
+  "陳情者":3,
+  "類別":4,
+  "狀態":12,
+  "結案":13
+};
 
 class GoogleSheetAdapter {
   constructor(credentialsPath,sheetID){
     this.credentialsPath = credentialsPath;
     this.sheetID = sheetID;
     this.credentials = undefined;
-    this.oAuth2Client = undefined;
-    
-    // Load client secrets from a local file.
-    fs.readFile(this.credentialsPath, (err, content) => {
-      if (err) return console.log('Error loading client secret file:', err);
-      // Authorize a client with credentials, then call the Google Sheets API.
-      this.credentials = JSON.parse(content);
-      this.authorize(listMajors);
-    });
+    this.oAuth2Client = undefined;   
   }
   
   /**
@@ -88,27 +65,65 @@ class GoogleSheetAdapter {
    * @param {function} callback The callback to call with the authorized client.
    */
   authorize(callback) {
-    const {client_secret, client_id, redirect_uris} = this.credentials.installed;
-    this.oAuth2Client = new google.auth.OAuth2(
-        client_id, client_secret, redirect_uris[0]);
+    // Load client secrets from a local file.
+    fs.readFile(this.credentialsPath, (err, content) => {
+      if (err) return console.log('Error loading client secret file:', err);
+      // Authorize a client with credentials, then call the Google Sheets API.
+      this.credentials = JSON.parse(content);
+      const {client_secret, client_id, redirect_uris} = this.credentials.installed;
+      this.oAuth2Client = new google.auth.OAuth2(
+          client_id, client_secret, redirect_uris[0]);
 
-    // Check if we have previously stored a token.
-    fs.readFile(TOKEN_PATH, (err, token) => {
-      if (err) return this.getNewToken(callback);
-      this.oAuth2Client.setCredentials(JSON.parse(token));
-      callback(this.oAuth2Client,this.sheetID);
+      // Check if we have previously stored a token.
+      fs.readFile(TOKEN_PATH, (err, token) => {
+        if (err) return this.getNewToken(callback);
+        this.oAuth2Client.setCredentials(JSON.parse(token));
+        callback();
+      });
     });
   }
   
-
+  getSpreadSheets(callbackForRows){
+    this.authorize(()=>{
+      var sheets = google.sheets({version: 'v4', auth: this.oAuth2Client});
+      sheets.spreadsheets.values.get({
+          spreadsheetId: this.sheetID,
+          range: 'DEMO!A1:N100',
+      }, (err, res) => {
+        if (err) return console.log('The API returned an error: ' + err);
+        const rows = res.data.values;
+        callbackForRows(rows);
+      }); // end get sheets
+    }); // end authorize
+  }
   
+  getAttributeByID(id,callbackForEachRow){ 
+    this.getSpreadSheets(function(rows){
+      rows.forEach(row => {
+        if ( id == parseInt(row[0]) ) callbackForEachRow(row);
+      }); // end each row
+    }); 
+  }
+
+  getAttributeByFilter(columnName,columnValue,callbackForEachRow){
+    var columnNum = COLUMN_MAP[columnName];
+    this.getSpreadSheets(function(rows){
+      rows.forEach(row => {
+        if ( row[columnNum] == columnValue ) callbackForEachRow(row);
+      }); // end each row
+    }); 
+  }
 }
 
 
 
-let temp = new GoogleSheetAdapter('credentials.json','1AJepb9l1DDFQ0rvGI6x22YCtSKMUM4LhSZyYyBMmGE8');
-
-
+let googleSheetHandler = new GoogleSheetAdapter('credentials.json','1AJepb9l1DDFQ0rvGI6x22YCtSKMUM4LhSZyYyBMmGE8');
+// googleSheetHandler.getAttributeByID(2,function(row){
+  // console.log(row);
+// });
+googleSheetHandler.getAttributeByFilter("類別","路燈故障",function(row){
+  console.log(row);
+});
 
 
 
