@@ -113,19 +113,39 @@ class GoogleSheetAdapter {
       }); // end each row
     }); 
   }
+  
+  appendRow(row){  
+    this.authorize(()=>{
+      var sheets = google.sheets({version: 'v4', auth: this.oAuth2Client});
+      var request = {
+        spreadsheetId: this.sheetID,
+        range: 'DEMO!A1:N100',
+        valueInputOption: 'RAW',
+        insertDataOption: 'INSERT_ROWS',
+        resource:{
+          values:[row]
+        },
+      };
+      sheets.spreadsheets.values.append(request, function(err, response) {
+        if (err) {
+          console.error(err);
+          return;
+        }
+        console.log(JSON.stringify(response, null, 2));
+      });
+    });
+  };
 }
-
-
 
 let googleSheetHandler = new GoogleSheetAdapter('credentials.json','1AJepb9l1DDFQ0rvGI6x22YCtSKMUM4LhSZyYyBMmGE8');
 // googleSheetHandler.getAttributeByID(2,function(row){
   // console.log(row);
 // });
-googleSheetHandler.getAttributeByFilter("類別","路燈故障",function(row){
-  console.log(row);
-});
+// googleSheetHandler.getAttributeByFilter("類別","路燈故障",function(row){
+  // console.log(row);
+// });
 
-
+googleSheetHandler.appendRow([2,'南港','合成里','jasonTEST','道路坑洞消失了','2017/08/01 上午 9:24','臺北市大安區忠孝東路七段9999巷11號','中坑洞','連結',"","","",""]);
 
 
 
