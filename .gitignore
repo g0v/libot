@@ -5,3 +5,5 @@ googlesheetHandler/node_modules/
 googlesheetHandler/package-lock.json
 googlesheetHandler/token.json
 googlesheetHandler/credentials.json
+lineBot/token.json
+conversation/__pycache__/

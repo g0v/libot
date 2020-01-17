@@ -1,6 +1,7 @@
 'use strict';
 
 const StateMachine = require('javascript-state-machine');
+
 const https = require('https');
 const fs = require('fs');
 const INVITE_LINK = "https://line.me/R/ti/p/%40762jfknc";
@@ -52,15 +53,15 @@ var libotCases = {}; //key = caseId
 
 // https://cythilya.github.io/2017/03/12/uuid/
 function _uuid() {
-  var d = Date.now();
-  if (typeof performance !== 'undefined' && typeof performance.now === 'function'){
-    d += performance.now(); //use high-precision timer if available
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-    var r = (d + Math.random() * 16) % 16 | 0;
-    d = Math.floor(d / 16);
-      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-  });
+    var d = Date.now();
+    if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+      d += performance.now(); //use high-precision timer if available
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = (d + Math.random() * 16) % 16 | 0;
+      d = Math.floor(d / 16);
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
 }
 
 function generateFlexMessage(text1, action1, cancel = true) {
@@ -148,113 +149,10 @@ var FSM_TEMPLATE = {
 		{name: 'f2l', from: 'Free', to: 'List'},
 		{name: 'goto', from: '*', to: function(s) { return s } }
     ],
-	data: {
-		message: null
-	},
+	  data: {
+		  message: null
+	  },
     methods: {		
-		/*onF2d: function(transition, event, user, currentCase) {
-			var fsm = transition.fsm;
-			
-			console.log('OK');
-		},*/
-		/*onF2d: function(self, event, user, currentCase) {
-			console.log("onF2d")
-			var action1 = {
-							 "type":"datetimepicker",
-							 "label":"選擇日期時間",
-							 "data":"storeId=12345",
-							 "mode":"datetime",
-							 "initial":"2017-12-25t00:00",
-							 "max":"2033-01-24t23:59",
-							 "min":"2017-12-25t00:00"
-						  };
-		
-			var message = generateFlexMessage("什麼時候發現的？", action1, false);
-			
-			return message;
-		},
-		onD2a: function(self, event, user, currentCase) {
-			console.log("onD2a");
-			
-			var fsm = self.fsm;
-			var nextState = null;
-			var message = null;
-			
-			// currentCase.eventTimestamp is because user says previous step
-			if(event.type == "postback" || currentCase.eventTimestamp !== null) { 
-				if(!currentCase.eventTimestamp) {
-					currentCase.eventTimestamp = event.postback.params.datetime;
-				}
-				var action1 = 　{  
-                                 "type":"uri",
-                                 "label":"選擇地址",
-                                 "uri":"line://nv/location",
-                                 "altUri": {
-                                    "desktop" : "http://example.com/pc/page/222"
-                                 }
-                              　};
-				message = generateFlexMessage("您選擇的時間為："　+ currentCase.eventTimestamp + "\n" + "能幫我選擇地址嗎？", action1);
-				
-			} else {
-				if(event.type == "message") {
-					switch(event.message.text) {
-						case "取消":
-							console.log("Cancel");
-							message = { type: 'text', text: "使用者取消" };
-							var userId = event.source.userId;
-							libotUsers[userId].currentCaseId = null;
-							nextState = "Free"
-							break;
-					}
-				}
-			}
-			return {"message": message, "nextState": nextState};
-		},
-		onA2p: function(self, event, user, currentCase) {
-			console.log("onA2p")
-			
-			var fsm = self.fsm;
-			var nextState = null;
-			var message = null;
-			
-			if(event.type == "message"　&& event.message.type == "location") {
-				
-				currentCase.location = event.message								
-				currentCase.currentStage = this.next;
-
-			} else {
-			
-				if(event.type == "message") {
-					switch(event.message.text) {
-						case "取消":
-							console.log("Cancel");
-							message = { type: 'text', text: "使用者取消" };
-							var userId = event.source.userId;
-							libotUsers[userId].currentCaseId = null;
-							nextState = "Free"
-							break;
-							
-						case "前一步":
-							console.log("前一步");
-							nextState = "Free"
-							
-							break;
-					}
-				}            
-				
-			}
-			
-			return {"message": message, "nextState": nextState};
-		},
-		onP2e: function(self, event, user, currentCase) {
-			console.log("onP2e")
-		},
-		onE2f: function(self, event, user, currentCase) {
-			console.log("onE2f")
-		},
-		onF2l: function(self, event, user, currentCase) {
-			console.log("onF2l")
-		},*/
 		onEnd: function(transition) {
 			console.log('onEnd')
 			var fsm = transition.fsm;
@@ -411,7 +309,7 @@ var FSM_TEMPLATE = {
 			return fsm.message;
 			
 		}
-    }
+  }
 }
 
 var Case = function(userId, timestamp, type) {
@@ -422,7 +320,7 @@ var Case = function(userId, timestamp, type) {
     this.createTimestamp = timestamp; // case 成立的時間
     this.eventTimestamp = null;
     this.type = type;
-	//this.fsm = new StateMachine(FSM_TEMPLATE);
+	  //this.fsm = new StateMachine(FSM_TEMPLATE);
     
 }
 
@@ -432,7 +330,7 @@ var User = function(userId, timestamp) {
     this.userId = userId;
     this.timestamp = timestamp;
     this.currentCaseId = null;
-	this.fsm = new StateMachine(FSM_TEMPLATE);
+	  this.fsm = new StateMachine(FSM_TEMPLATE);
     
 }
 
@@ -441,43 +339,39 @@ User.prototype.process = function(event) {
     console.log(event);
 
     var message = null;
-	var currentCase = null;
+	  var currentCase = null;
 	
-    if(event.type == "message" && event.message.text in STRING_TO_TYPE) {         
-        var newCase = new Case(event.source.userId, event.timestamp, STRING_TO_TYPE[event.message.text]);
-        console.log(newCase); 
-		this.caseIds[newCase.caseId] = true;
-		this.currentCaseId = newCase.caseId;     
-		libotCases[newCase.caseId] = newCase;
-		this.fsm.goto('Free');
-	}
+      if(event.type == "message" && event.message.text in STRING_TO_TYPE) {         
+          var newCase = new Case(event.source.userId, event.timestamp, STRING_TO_TYPE[event.message.text]);
+          console.log(newCase); 
+		  this.caseIds[newCase.caseId] = true;
+		  this.currentCaseId = newCase.caseId;     
+		  libotCases[newCase.caseId] = newCase;
+		  this.fsm.goto('Free');
+	  }
 	
-	if(event.type == "message" && event.message.text == "查看進度") {
-		this.fsm.goto('Free');
-	}
+	  if(event.type == "message" && event.message.text == "查看進度") {
+		  this.fsm.goto('Free');
+	  }
 	
-	if(this.currentCaseId !== null) {
-		currentCase = libotCases[this.currentCaseId];
-	}
+	  if(this.currentCaseId !== null) {
+		  currentCase = libotCases[this.currentCaseId];
+	  }
 	
-	//console.log('hello', currentCase)
-	
-	//this.fsm.f2d();
-	
-	message = this.fsm.handler(event, this, currentCase);
+	  message = this.fsm.handler(event, this, currentCase);
     
     return message;
 }
 
 function group_reply(event) {
 
-	var message = false;
+	  var message = false;
 
     if(event.message.text.includes("派工")) {
     
         var messageText = "嗨！里長，需要我幫您直接反應給機關窗口嗎？點我可以帶你馬上立案喔！\n" + INVITE_LINK
         var message = { type: 'text', text: messageText };
-		
+	
     }
 
     return message;
@@ -526,3 +420,12 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`listening on ${port}`);
 });
+
+const GoogleSheetAdapter = require('../googlesheetHandler/sheet.js');
+let googleSheetHandler = new GoogleSheetAdapter('../googlesheetHandler/credentials.json','1AJepb9l1DDFQ0rvGI6x22YCtSKMUM4LhSZyYyBMmGE8');
+
+googleSheetHandler.getAttributeByFilter("類別","路燈故障",function(row){
+  console.log(row);
+});
+
+
