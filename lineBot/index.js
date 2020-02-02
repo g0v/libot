@@ -7,7 +7,13 @@ const fs = require('fs');
 const INVITE_LINK = "https://line.me/R/ti/p/%40762jfknc";
 const line = require('@line/bot-sdk');
 const express = require('express');
+const GoogleSheetAdapter = require('../googlesheetHandler/sheet.js');
+
 var visualize = require('javascript-state-machine/lib/visualize');
+var Mutex = require('async-mutex').Mutex;
+const mutex = new Mutex();
+
+let googleSheetHandler = new GoogleSheetAdapter('../googlesheetHandler/credentials.json','1AJepb9l1DDFQ0rvGI6x22YCtSKMUM4LhSZyYyBMmGE8');
 
 // create LINE SDK config from env variables
 const config = {
@@ -55,11 +61,11 @@ var libotCases = {}; //key = caseId
 function _uuid() {
     var d = Date.now();
     if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
-      d += performance.now(); //use high-precision timer if available
+        d += performance.now(); //use high-precision timer if available
     }
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-      var r = (d + Math.random() * 16) % 16 | 0;
-      d = Math.floor(d / 16);
+        var r = (d + Math.random() * 16) % 16 | 0;
+        d = Math.floor(d / 16);
         return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
     });
 }
@@ -134,8 +140,7 @@ function generateFlexMessage(text1, action1, cancel = true) {
         flexMessage["contents"]["footer"]["contents"] = flexMessage["contents"]["footer"]["contents"].slice(0, 1).concat(flexMessage["contents"]["footer"]["contents"].slice(2, 3));
     }
 
-    return flexMessage
-
+    return flexMessage;
 }
 
 var FSM_TEMPLATE = {
@@ -149,14 +154,21 @@ var FSM_TEMPLATE = {
 		{name: 'f2l', from: 'Free', to: 'List'},
 		{name: 'goto', from: '*', to: function(s) { return s } }
     ],
-	  data: {
-		  message: null
-	  },
+	data: {
+		message: null
+	},
     methods: {		
-		onEnd: function(transition) {
+		onEnd: async function(transition) {
 			console.log('onEnd')
 			var fsm = transition.fsm;
-			
+			console.log("currentCase", fsm.currentCase);
+            
+            var district_idx = fsm.currentCase.location.address.indexOf("區");
+            
+            var district = fsm.currentCase.location.address.slice(district_idx - 2, district_idx + 1);
+            
+            await googleSheetHandler.appendRow([fsm.currentCase.caseId, district, '某某里', fsm.currentCase.userId, TYPE_TO_STRING[fsm.currentCase.type], fsm.currentCase.eventTimestamp, fsm.currentCase.location.address, '損壞', '連結', "","","",""]);
+            
 			fsm.message = { type: 'text', text: "完成" };
 		},
 		onPhoto: function(transition) {
@@ -206,7 +218,7 @@ var FSM_TEMPLATE = {
 		
 			fsm.message = generateFlexMessage("什麼時候發現的？", action1, false);
 		},
-		handler: function(event, user, currentCase) {
+		handler: async function(event, user, currentCase) {
 			var fsm = user.fsm;
 			var message = null;
 			
@@ -230,7 +242,26 @@ var FSM_TEMPLATE = {
 									fsm.f2d();
 									break;
 								case "查看進度":
-									fsm.message = { type: 'text', text: "查看進度" };
+								    var message_text = "沒有資料"
+									var row_datas = [];
+                                    
+                                    const google_release = await mutex.acquire();
+                                    
+                                    googleSheetHandler.getAttributeByFilter("陳情者",fsm.user.userId, function(row) {
+                                        row_datas.push(row_data_to_row_info(row));
+                                        console.log("push");
+                                        google_release();
+                                    });
+                                    
+                                    const release = await mutex.acquire();
+                                    release();
+									
+									console.log(row_datas);
+									if(row_datas.length) {
+										message_text = row_datas_to_case_string(row_datas);
+									}								
+									
+									fsm.message = { type: 'text', text: message_text };
 									break;
 								default:
 									fsm.message = { type: 'text', text: "請選取想要回報的類別" };
@@ -298,6 +329,7 @@ var FSM_TEMPLATE = {
 							currentCase.image = event.message.id;
 							fsm.p2e();
 							fsm.goto('Free');
+                            
 						} else {						
 							fsm.message = { type: 'text', text: "抱歉～我聽不懂～" };
 						}
@@ -305,6 +337,7 @@ var FSM_TEMPLATE = {
 					}								
 				}
 			}
+            
 			console.log(fsm.message);
 			return fsm.message;
 			
@@ -320,7 +353,7 @@ var Case = function(userId, timestamp, type) {
     this.createTimestamp = timestamp; // case 成立的時間
     this.eventTimestamp = null;
     this.type = type;
-	  //this.fsm = new StateMachine(FSM_TEMPLATE);
+	//this.fsm = new StateMachine(FSM_TEMPLATE);
     
 }
 
@@ -339,33 +372,35 @@ User.prototype.process = function(event) {
     console.log(event);
 
     var message = null;
-	  var currentCase = null;
-	
-      if(event.type == "message" && event.message.text in STRING_TO_TYPE) {         
-          var newCase = new Case(event.source.userId, event.timestamp, STRING_TO_TYPE[event.message.text]);
-          console.log(newCase); 
-		  this.caseIds[newCase.caseId] = true;
-		  this.currentCaseId = newCase.caseId;     
-		  libotCases[newCase.caseId] = newCase;
-		  this.fsm.goto('Free');
-	  }
-	
-	  if(event.type == "message" && event.message.text == "查看進度") {
-		  this.fsm.goto('Free');
-	  }
-	
-	  if(this.currentCaseId !== null) {
-		  currentCase = libotCases[this.currentCaseId];
-	  }
-	
-	  message = this.fsm.handler(event, this, currentCase);
+	var currentCase = null;
+
+	if(event.type == "message" && event.message.text in STRING_TO_TYPE) {         
+		var newCase = new Case(event.source.userId, event.timestamp, STRING_TO_TYPE[event.message.text]);
+		console.log(newCase); 
+		this.caseIds[newCase.caseId] = true;
+		this.currentCaseId = newCase.caseId;     
+		libotCases[newCase.caseId] = newCase;
+		this.fsm.goto('Free');
+	}
+
+	if(event.type == "message" && event.message.text == "查看進度") {
+		this.fsm.goto('Free');
+	}
+
+	if(this.currentCaseId !== null) {
+		currentCase = libotCases[this.currentCaseId];
+	}
+  
+  
+
+	message = this.fsm.handler(event, this, currentCase);
     
     return message;
 }
 
 function group_reply(event) {
 
-	  var message = false;
+	var message = false;
 
     if(event.message.text.includes("派工")) {
     
@@ -395,18 +430,18 @@ function user_reply(event) {
 }
 
 // event handler
-function handleEvent(event) {
+async function handleEvent(event) {
     
     console.log(event);
 
     var message = null;
     
     if(event.source.type == "group") {
-        message = group_reply(event);
+        message = await group_reply(event);
     }
     
     if(event.source.type == "user") {
-        message = user_reply(event);
+        message = await user_reply(event);
     }
         
     // use reply API
@@ -415,17 +450,78 @@ function handleEvent(event) {
 	}
 }
 
+function row_data_to_row_info(row_data) {	
+	return {ID: row_data[0], address: row_data[6], status: row_data[12]};
+}
+	
+function row_datas_to_case_string(row_datas) {
+	
+	var result_string = "";
+	
+	row_datas.forEach(function(row_info) {
+        
+        console.log(row_info);
+        
+		result_string += "案件編號：" + row_info["ID"] + "\n" +
+						 "地址：" + row_info["address"] + "\n" +
+						 "狀態：" + row_info["status"] + "\n" +
+						 "-----------------" + "\n";
+	});
+	
+	return result_string;
+}
+
+function get_line_image(message_id) {    
+
+    /*var fs = require('fs'),
+    request = require('request');
+
+    var download = function(uri, filename, callback){
+      request.head(uri, function(err, res, body){
+        console.log('content-type:', res.headers['content-type']);
+        console.log('content-length:', res.headers['content-length']);
+
+        request(uri).pipe(fs.createWriteStream(filename)).on('close', callback);
+      });
+    };
+
+    download('https://www.google.com/images/srpr/logo3w.png', 'google.png', function(){
+      console.log('done');
+    });*/
+
+    var options = {
+        host: 'api-data.line.me',
+        port: 443,
+        path: '/v2/bot/message/' + message_id.toString()  + '/content',
+        method: 'GET'
+    };
+
+    var data = new Stream();
+
+    var req = https.request(options, function(res) {
+        
+        console.log('STATUS: ' + res.statusCode);
+        console.log('HEADERS: ' + JSON.stringify(res.headers));
+        res.setEncoding('utf8');
+        
+        res.on('data', function (chunk) {
+            data.push(chunk);
+        });
+    });
+    
+    req.end();
+    
+    return data.read();
+}
+
+function upload_image(image) {
+     
+}
+
 // listen on port
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`listening on ${port}`);
-});
-
-const GoogleSheetAdapter = require('../googlesheetHandler/sheet.js');
-let googleSheetHandler = new GoogleSheetAdapter('../googlesheetHandler/credentials.json','1AJepb9l1DDFQ0rvGI6x22YCtSKMUM4LhSZyYyBMmGE8');
-
-googleSheetHandler.getAttributeByFilter("類別","路燈故障",function(row){
-  console.log(row);
+    console.log(`listening on ${port}`);
 });
 
 
