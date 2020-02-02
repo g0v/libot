@@ -83,7 +83,8 @@ class GoogleSheetAdapter {
     });
   }
   
-  getSpreadSheets(callbackForRows){
+   getSpreadSheets(callbackForRows){
+	console.log("getSpreadSheets start")
     this.authorize(()=>{
       var sheets = google.sheets({version: 'v4', auth: this.oAuth2Client});
       sheets.spreadsheets.values.get({
@@ -92,9 +93,12 @@ class GoogleSheetAdapter {
       }, (err, res) => {
         if (err) return console.log('The API returned an error: ' + err);
         const rows = res.data.values;
+		console.log("getSpreadSheets cb start")
         callbackForRows(rows);
+		console.log("getSpreadSheets cb end")
       }); // end get sheets
     }); // end authorize
+	console.log("getSpreadSheets end")
   }
   
   getAttributeByID(id,callbackForEachRow){ 
@@ -105,13 +109,23 @@ class GoogleSheetAdapter {
     }); 
   }
 
-  getAttributeByFilter(columnName,columnValue,callbackForEachRow){
-    var columnNum = COLUMN_MAP[columnName];
-    this.getSpreadSheets(function(rows){
-      rows.forEach(row => {
-        if ( row[columnNum] == columnValue ) callbackForEachRow(row);
-      }); // end each row
-    }); 
+  getAttributeByFilter(columnName,columnValue, callbackForEachRow){
+
+	  console.log(["getAttributeByFilter start", columnName, columnValue, callbackForEachRow]);
+      if (columnName && columnValue) {
+		  var columnNum = COLUMN_MAP[columnName];
+		   this.getSpreadSheets(function(rows){    
+		    rows.forEach(async row => {
+			  if ( row[columnNum] == columnValue ) {
+				  console.log("getAttributeByFilter cb start")
+				  callbackForEachRow(row);
+				  console.log("getAttributeByFilter cb end")
+			  }
+		    }); // end each row
+		  }); 
+       
+      }
+	  console.log("getAttributeByFilter end")
   }
   
   appendRow(row){  
@@ -137,17 +151,24 @@ class GoogleSheetAdapter {
   };
 }
 
-let googleSheetHandler = new GoogleSheetAdapter('credentials.json','1AJepb9l1DDFQ0rvGI6x22YCtSKMUM4LhSZyYyBMmGE8');
+//let googleSheetHandler = new GoogleSheetAdapter('credentials.json','1AJepb9l1DDFQ0rvGI6x22YCtSKMUM4LhSZyYyBMmGE8');
 // googleSheetHandler.getAttributeByID(2,function(row){
   // console.log(row);
 // });
-// googleSheetHandler.getAttributeByFilter("類別","路燈故障",function(row){
-  // console.log(row);
-// });
 
-googleSheetHandler.appendRow([2,'南港','合成里','jasonTEST','道路坑洞消失了','2017/08/01 上午 9:24','臺北市大安區忠孝東路七段9999巷11號','中坑洞','連結',"","","",""]);
+/*async function main() {
+    console.log("start")
+    await googleSheetHandler.getAttributeByFilter("類別","路燈故障", function(row){
+        console.log(row);
+    });
+    console.log("end")
+}
 
+main();*/
 
+//googleSheetHandler.appendRow([2,'南港','合成里','jasonTEST','道路坑洞消失了','2017/08/01 上午 9:24','臺北市大安區忠孝東路七段9999巷11號','中坑洞','連結',"","","",""]);
+
+module.exports = GoogleSheetAdapter
 
 
 

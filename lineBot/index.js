@@ -8,13 +8,15 @@ const INVITE_LINK = "https://line.me/R/ti/p/%40762jfknc";
 const line = require('@line/bot-sdk');
 const express = require('express');
 const GoogleSheetAdapter = require('../googlesheetHandler/sheet.js');
+const ImgurUploader = require('../googlesheetHandler/imgur.js');
 
+var Stream = require('stream').Transform
 var visualize = require('javascript-state-machine/lib/visualize');
 var Mutex = require('async-mutex').Mutex;
 const mutex = new Mutex();
 
 let googleSheetHandler = new GoogleSheetAdapter('../googlesheetHandler/credentials.json','1AJepb9l1DDFQ0rvGI6x22YCtSKMUM4LhSZyYyBMmGE8');
-
+let imgurUploader = new ImgurUploader();
 // create LINE SDK config from env variables
 const config = {
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
@@ -158,16 +160,12 @@ var FSM_TEMPLATE = {
 		message: null
 	},
     methods: {		
-		onEnd: async function(transition) {
+		onEnd: function(transition) {
 			console.log('onEnd')
 			var fsm = transition.fsm;
 			console.log("currentCase", fsm.currentCase);
             
-            var district_idx = fsm.currentCase.location.address.indexOf("區");
-            
-            var district = fsm.currentCase.location.address.slice(district_idx - 2, district_idx + 1);
-            
-            await googleSheetHandler.appendRow([fsm.currentCase.caseId, district, '某某里', fsm.currentCase.userId, TYPE_TO_STRING[fsm.currentCase.type], fsm.currentCase.eventTimestamp, fsm.currentCase.location.address, '損壞', '連結', "","","",""]);
+            var line_image = uploadImage(fsm.currentCase.image, fsm);
             
 			fsm.message = { type: 'text', text: "完成" };
 		},
@@ -471,51 +469,34 @@ function row_datas_to_case_string(row_datas) {
 	return result_string;
 }
 
-function get_line_image(message_id) {    
-
-    /*var fs = require('fs'),
-    request = require('request');
-
-    var download = function(uri, filename, callback){
-      request.head(uri, function(err, res, body){
-        console.log('content-type:', res.headers['content-type']);
-        console.log('content-length:', res.headers['content-length']);
-
-        request(uri).pipe(fs.createWriteStream(filename)).on('close', callback);
-      });
+function uploadImage(message_id, fsm) {
+    var district_idx = fsm.currentCase.location.address.indexOf("區");
+    var district = fsm.currentCase.location.address.slice(district_idx - 2, district_idx + 1);    
+    
+    const request = require('request');
+    
+    const options = {
+        url: 'https://api-data.line.me/v2/bot/message/' + message_id.toString() + '/content',
+        headers: { 'Authorization': 'Bearer ' + config.channelAccessToken}
     };
 
-    download('https://www.google.com/images/srpr/logo3w.png', 'google.png', function(){
-      console.log('done');
-    });*/
+    var download = function(options, filename, callback){
+        request.head(options, function(err, res, body){
+            console.log('content-type:', res.headers['content-type']);
+            console.log('content-length:', res.headers['content-length']);
 
-    var options = {
-        host: 'api-data.line.me',
-        port: 443,
-        path: '/v2/bot/message/' + message_id.toString()  + '/content',
-        method: 'GET'
-    };
-
-    var data = new Stream();
-
-    var req = https.request(options, function(res) {
-        
-        console.log('STATUS: ' + res.statusCode);
-        console.log('HEADERS: ' + JSON.stringify(res.headers));
-        res.setEncoding('utf8');
-        
-        res.on('data', function (chunk) {
-            data.push(chunk);
+            request(options).pipe(fs.createWriteStream(filename)).on('close', callback);
         });
+    };
+
+    download(options, 'image.jpg', async function(){
+        console.log('done');
+        
+        var link = await imgurUploader.uploadImage('image.jpg');
+        var row_data = [fsm.currentCase.caseId, district, '某某里', fsm.currentCase.userId, TYPE_TO_STRING[fsm.currentCase.type], fsm.currentCase.eventTimestamp, fsm.currentCase.location.address, '損壞', link, "","","","勘查中"]
+        googleSheetHandler.appendRow(row_data);
     });
     
-    req.end();
-    
-    return data.read();
-}
-
-function upload_image(image) {
-     
 }
 
 // listen on port

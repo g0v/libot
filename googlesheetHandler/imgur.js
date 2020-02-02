@@ -2,7 +2,7 @@ const fs = require('fs');
 var imgur = require('imgur');
 
 
-imgur.setAPIUrl('https://api.imgur.com/3/');
+/*imgur.setAPIUrl('https://api.imgur.com/3/');
 imgur.setClientId('a27075466ae2d41');
 imgur.setCredentials('flyingmars@gmail.com', 'libottaiwan886', 'a27075466ae2d41');
 imgur.uploadFile('./netprofiles.jpeg','uUOABkR')
@@ -11,18 +11,33 @@ imgur.uploadFile('./netprofiles.jpeg','uUOABkR')
     })
     .catch(function (err) {
         console.error(err.message);
-    });
+    });*/
     
 class ImgurUploader{
-  constructor(credentialsPath,sheetID){
+  constructor(){
     this.imgurObj = imgur;
     this.imgurObj.setAPIUrl('https://api.imgur.com/3/');
     this.imgurObj.setClientId('a27075466ae2d41');
     this.imgurObj.setCredentials('flyingmars@gmail.com', 'libottaiwan886', 'a27075466ae2d41');
   }
-    
-    
+  
+  async uploadImage(image) {
+      
+      var link = "";
+      
+      await imgur.uploadFile("./" + image)
+        .then(function (json) {
+            link = json.data.link;
+        })
+        .catch(function (err) {
+            console.error(err.message);
+        });
+        
+      return link;
+  }
 }
+
+module.exports = ImgurUploader
 
 // var https = require('https');
 
