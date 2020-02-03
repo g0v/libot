@@ -20,8 +20,9 @@ const COLUMN_MAP = {
 };
 
 class GoogleSheetAdapter {
-  constructor(credentialsPath,sheetID){
-    this.credentialsPath = credentialsPath;
+  //constructor(credentialsPath,sheetID){
+  constructor(sheetID){
+    //this.credentialsPath = credentialsPath;
     this.sheetID = sheetID;
     this.credentials = undefined;
     this.oAuth2Client = undefined;   
@@ -66,21 +67,21 @@ class GoogleSheetAdapter {
    */
   authorize(callback) {
     // Load client secrets from a local file.
-    fs.readFile(this.credentialsPath, (err, content) => {
-      if (err) return console.log('Error loading client secret file:', err);
+    //fs.readFile(this.credentialsPath, (err, content) => {
+      //if (err) return console.log('Error loading client secret file:', err);
       // Authorize a client with credentials, then call the Google Sheets API.
-      this.credentials = JSON.parse(content);
+      this.credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_CONTENT);
       const {client_secret, client_id, redirect_uris} = this.credentials.installed;
       this.oAuth2Client = new google.auth.OAuth2(
           client_id, client_secret, redirect_uris[0]);
 
       // Check if we have previously stored a token.
-      fs.readFile(TOKEN_PATH, (err, token) => {
-        if (err) return this.getNewToken(callback);
-        this.oAuth2Client.setCredentials(JSON.parse(token));
+      //fs.readFile(TOKEN_PATH, (err, token) => {
+      //  if (err) return this.getNewToken(callback);
+        this.oAuth2Client.setCredentials(JSON.parse(process.env.GOOGLE_TOKEN));
         callback();
-      });
-    });
+      //});
+    //});
   }
   
    getSpreadSheets(callbackForRows){
@@ -109,7 +110,7 @@ class GoogleSheetAdapter {
     }); 
   }
 
-  getAttributeByFilter(columnName,columnValue, callbackForEachRow){
+  getAttributeByFilter(columnName, columnValue, callbackForEachRow){
 
 	  console.log(["getAttributeByFilter start", columnName, columnValue, callbackForEachRow]);
       if (columnName && columnValue) {

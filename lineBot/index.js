@@ -13,9 +13,9 @@ const ImgurUploader = require('../googlesheetHandler/imgur.js');
 var Stream = require('stream').Transform
 var visualize = require('javascript-state-machine/lib/visualize');
 var Mutex = require('async-mutex').Mutex;
-const mutex = new Mutex();
+//const mutex = new Mutex();
 
-let googleSheetHandler = new GoogleSheetAdapter('../googlesheetHandler/credentials.json','1AJepb9l1DDFQ0rvGI6x22YCtSKMUM4LhSZyYyBMmGE8');
+let googleSheetHandler = new GoogleSheetAdapter(process.env.GOOGLE_SHEET_ID);
 let imgurUploader = new ImgurUploader();
 // create LINE SDK config from env variables
 const config = {
@@ -65,7 +65,7 @@ function _uuid() {
     if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
         d += performance.now(); //use high-precision timer if available
     }
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    return 'xxxxxxxx'.replace(/[xy]/g, function (c) {
         var r = (d + Math.random() * 16) % 16 | 0;
         d = Math.floor(d / 16);
         return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
@@ -243,7 +243,7 @@ var FSM_TEMPLATE = {
 								    var message_text = "沒有資料"
 									var row_datas = [];
                                     
-                                    const google_release = await mutex.acquire();
+                                    const google_release = await fsm.user.mutex.acquire();
                                     
                                     googleSheetHandler.getAttributeByFilter("陳情者",fsm.user.userId, function(row) {
                                         row_datas.push(row_data_to_row_info(row));
@@ -251,7 +251,7 @@ var FSM_TEMPLATE = {
                                         google_release();
                                     });
                                     
-                                    const release = await mutex.acquire();
+                                    const release = await fsm.user.mutex.acquire();
                                     release();
 									
 									console.log(row_datas);
@@ -361,8 +361,8 @@ var User = function(userId, timestamp) {
     this.userId = userId;
     this.timestamp = timestamp;
     this.currentCaseId = null;
-	  this.fsm = new StateMachine(FSM_TEMPLATE);
-    
+	this.fsm = new StateMachine(FSM_TEMPLATE);
+    this.mutex = new Mutex();
 }
 
 User.prototype.process = function(event) {
@@ -378,6 +378,7 @@ User.prototype.process = function(event) {
 		this.caseIds[newCase.caseId] = true;
 		this.currentCaseId = newCase.caseId;     
 		libotCases[newCase.caseId] = newCase;
+        
 		this.fsm.goto('Free');
 	}
 
@@ -389,10 +390,8 @@ User.prototype.process = function(event) {
 		currentCase = libotCases[this.currentCaseId];
 	}
   
-  
-
 	message = this.fsm.handler(event, this, currentCase);
-    
+   
     return message;
 }
 

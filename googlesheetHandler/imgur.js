@@ -17,15 +17,15 @@ class ImgurUploader{
   constructor(){
     this.imgurObj = imgur;
     this.imgurObj.setAPIUrl('https://api.imgur.com/3/');
-    this.imgurObj.setClientId('a27075466ae2d41');
-    this.imgurObj.setCredentials('flyingmars@gmail.com', 'libottaiwan886', 'a27075466ae2d41');
+    this.imgurObj.setClientId(process.env.IMGUR_ID);
+    this.imgurObj.setCredentials('flyingmars@gmail.com', process.env.IMGUR_PASSWORD, process.env.IMGUR_ID);
   }
   
   async uploadImage(imagePath) {
       
       var link = "";
       
-      await this.imgurObj.uploadFile("./" + imagePath,"uUOABkR")
+      await this.imgurObj.uploadFile("./" + imagePath, "uUOABkR")
         .then(function (json) {
             link = json.data.link;
         })
