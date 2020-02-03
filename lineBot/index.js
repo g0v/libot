@@ -492,7 +492,7 @@ function uploadImage(message_id, fsm) {
         console.log('done');
         
         var link = await imgurUploader.uploadImage('image.jpg');
-        var row_data = [fsm.currentCase.caseId, district, '某某里', fsm.currentCase.userId, TYPE_TO_STRING[fsm.currentCase.type], fsm.currentCase.eventTimestamp, fsm.currentCase.location.address, '損壞', link, "","","","勘查中"]
+        var row_data = [fsm.currentCase.caseId, district, '某某里', fsm.currentCase.userId, TYPE_TO_STRING[fsm.currentCase.type], fsm.currentCase.eventTimestamp, fsm.currentCase.location.address, TYPE_TO_STRING[fsm.currentCase.type] + '問題', link, "","","","勘查中"]
         googleSheetHandler.appendRow(row_data);
     });
     
