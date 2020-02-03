@@ -70,6 +70,7 @@ class GoogleSheetAdapter {
     //fs.readFile(this.credentialsPath, (err, content) => {
       //if (err) return console.log('Error loading client secret file:', err);
       // Authorize a client with credentials, then call the Google Sheets API.
+      console.log(process.env.GOOGLE_CREDENTIALS_CONTENT);
       this.credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_CONTENT);
       const {client_secret, client_id, redirect_uris} = this.credentials.installed;
       this.oAuth2Client = new google.auth.OAuth2(

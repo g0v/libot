@@ -245,16 +245,22 @@ var FSM_TEMPLATE = {
                                     
                                     const google_release = await fsm.user.mutex.acquire();
                                     
+                                    var timeout = setTimeout(function(){ google_release(); 
+                                    console.log("timeout");}, 1000);
+                                    
                                     googleSheetHandler.getAttributeByFilter("陳情者",fsm.user.userId, function(row) {
                                         row_datas.push(row_data_to_row_info(row));
                                         console.log("push");
-                                        google_release();
+                                        clearTimeout(timeout);
+                                        timeout = setTimeout(function(){ google_release();}, 1000);
                                     });
                                     
                                     const release = await fsm.user.mutex.acquire();
-                                    release();
-									
+                                    release();									
 									console.log(row_datas);
+                                    
+                                    
+                                    
 									if(row_datas.length) {
 										message_text = row_datas_to_case_string(row_datas);
 									}								
