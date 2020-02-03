@@ -454,7 +454,7 @@ async function handleEvent(event) {
 }
 
 function row_data_to_row_info(row_data) {	
-	return {ID: row_data[0], address: row_data[6], status: row_data[12]};
+	return {ID: row_data[0], address: row_data[6], planned_finish_time: row_data[10], real_finish_time: row_data[11], status: row_data[12]};
 }
 	
 function row_datas_to_case_string(row_datas) {
@@ -465,9 +465,26 @@ function row_datas_to_case_string(row_datas) {
         
         console.log(row_info);
         
+        var planned_finish_time = "";
+        var real_finish_time = "";
+        
+        if(row_info["planned_finish_time"] == "") {
+            planned_finish_time = "評估中";
+        } else {
+            planned_finish_time = row_info["planned_finish_time"];
+        }
+        
+        if(row_info["real_finish_time"] == "") {
+            real_finish_time = "進行中";
+        } else {
+            real_finish_time = row_info["real_finish_time"];
+        }
+        
 		result_string += "案件編號：" + row_info["ID"] + "\n" +
 						 "地址：" + row_info["address"] + "\n" +
 						 "狀態：" + row_info["status"] + "\n" +
+                         "預計完成時間：" + planned_finish_time + "\n" +
+                         "實際完成時間：" + real_finish_time + "\n" +
 						 "-----------------" + "\n";
 	});
 	
