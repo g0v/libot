@@ -1,1 +1,1 @@
-web: node lineBot/index.js
+web: node lineBot/index.js > log.txt
