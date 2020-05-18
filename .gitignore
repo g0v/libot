@@ -9,3 +9,10 @@ googlesheetHandler/credentials.json
 conversation/__pycache__/
 node_modules
 image.jpg
+
+# data analyzer
+misc/libot_chat_analyzer/data/
+
+
+# pycharm
+.idea/
